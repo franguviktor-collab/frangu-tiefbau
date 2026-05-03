@@ -743,6 +743,128 @@ a.header-contact:hover {
   border: 1px solid rgba(46, 230, 168, 0.35);
 }
 
+.pill-datetime--block {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+}
+
+/* Admin: mobile cards (≤640px), table on wider screens */
+.admin-cards {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .admin-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .table-wrap--desktop {
+    display: none !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .admin-cards {
+    display: none !important;
+  }
+}
+
+.admin-card {
+  background: var(--surface-2);
+  border: 1px solid var(--green-dark);
+  border-radius: var(--radius);
+  padding: 1rem 1rem 1.15rem;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.admin-card__head {
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--green-dark);
+}
+
+.admin-card__name {
+  margin: 0 0 0.35rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.admin-card__address {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.admin-card__phone {
+  margin: 0.7rem 0 0;
+  font-size: 1rem;
+}
+
+.admin-card__phone a {
+  font-weight: 600;
+}
+
+.admin-card__datetime {
+  margin: 0.75rem 0 0;
+}
+
+.admin-card__created {
+  margin: 0.5rem 0 0;
+}
+
+.admin-card__status-form {
+  margin: 0.9rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-card__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-card__select {
+  width: 100%;
+  max-width: 100%;
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+.admin-card__delete-form {
+  margin: 0.85rem 0 0;
+}
+
+.btn--delete-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  min-height: 3rem;
+  margin-top: 0;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: linear-gradient(180deg, #d14a4a, #a83232);
+  border: 1px solid #7f2828;
+  color: #fff;
+}
+
+.btn--delete-card:hover {
+  filter: brightness(1.08);
+  text-decoration: none;
+}
+
 .inline-form {
   display: inline;
   margin: 0;
