@@ -839,6 +839,18 @@ a.header-contact:hover {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
 
+.admin-card--compact.admin-card--status-new {
+  border-color: #f59e0b;
+}
+
+.admin-card--compact.admin-card--status-confirmed {
+  border-color: #3b82f6;
+}
+
+.admin-card--compact.admin-card--status-completed {
+  border-color: #10b981;
+}
+
 .admin-card__row1 {
   display: flex;
   flex-wrap: nowrap;
@@ -926,7 +938,7 @@ a.header-contact:hover {
   min-width: 0;
 }
 
-.admin-card__row3 .admin-card__status-form {
+.admin-card__row3 .admin-card__status-wrap {
   flex: 1 1 0;
   min-width: 0;
   margin: 0;
@@ -978,6 +990,12 @@ a.header-contact:hover {
 .inline-form {
   display: inline;
   margin: 0;
+}
+
+.inline-form--pseudo {
+  display: inline-block;
+  margin: 0;
+  vertical-align: middle;
 }
 
 .sr-only {

@@ -7,26 +7,24 @@
   {% include "_pwa_head_admin.html" %}
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="admin-body site-page">
+<body class="admin-body site-page"{% if logged_in %} data-admin-lang="{{ admin_lang }}"{% endif %}>
   {% set lang = admin_lang %}
   {% include "_site_header.html" %}
 
   <main class="site-main">
     <div class="shell shell--wide">
       <header class="admin-bar">
-        <span class="admin-bar__title">Admin · Glasfaser Termine</span>
+        <span class="admin-bar__title" data-i18n="title">{{ at.title }}</span>
         {% if logged_in %}
         <div class="header__actions">
-          <form class="inline-form" method="get" action="/admin">
-            <label class="sr-only" for="admin-lang">{{ at.lang_admin }}</label>
-            <select class="field__input field__input--sm" id="admin-lang" name="lang" onchange="this.form.submit()">
-              <option value="de" {% if admin_lang == 'de' %}selected{% endif %}>DE</option>
-              <option value="ru" {% if admin_lang == 'ru' %}selected{% endif %}>RU</option>
-              <option value="en" {% if admin_lang == 'en' %}selected{% endif %}>EN</option>
-            </select>
-          </form>
+          <label class="sr-only" for="admin-lang" data-i18n="lang_admin">{{ at.lang_admin }}</label>
+          <select class="field__input field__input--sm" id="admin-lang" name="lang">
+            <option value="de" {% if admin_lang == 'de' %}selected{% endif %}>DE</option>
+            <option value="ru" {% if admin_lang == 'ru' %}selected{% endif %}>RU</option>
+            <option value="en" {% if admin_lang == 'en' %}selected{% endif %}>EN</option>
+          </select>
           <button type="button" class="admin-refresh-btn" onclick="location.reload()" aria-label="{{ at.refresh }}" title="{{ at.refresh }}">↻</button>
-          <a class="btn btn--ghost btn--sm" href="/admin/logout">{{ at.logout }}</a>
+          <a class="btn btn--ghost btn--sm" href="/admin/logout" data-i18n="logout">{{ at.logout }}</a>
         </div>
         {% else %}
         <nav class="lang" aria-label="{{ at.lang_admin }}">
@@ -54,11 +52,11 @@
         {% else %}
 
         {% if not rows %}
-        <p class="muted padded">{{ at.empty }}</p>
+        <p class="muted padded" data-i18n="empty">{{ at.empty }}</p>
         {% else %}
         <div class="admin-cards" aria-label="Termine Liste">
           {% for row in rows %}
-          <article class="admin-card admin-card--compact">
+          <article class="admin-card admin-card--compact admin-card--status-{{ row.status }}">
             <div class="admin-card__row1">
               <span class="admin-card__num">#{{ loop.index }}</span>
               <span class="admin-card__dot" aria-hidden="true">·</span>
@@ -72,16 +70,16 @@
               <a class="admin-card__tel" href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a>
             </div>
             <div class="admin-card__row3">
-              <form class="admin-card__status-form" method="post" action="/admin/status/{{ row.id }}">
+              <div class="admin-card__status-wrap">
                 <label class="sr-only" for="status-m-{{ row.id }}">{{ at.table_status }}</label>
-                <select class="field__input admin-card__select admin-card__select--compact" id="status-m-{{ row.id }}" name="status" onchange="this.form.submit()">
+                <select class="field__input admin-card__select admin-card__select--compact js-admin-status-select" id="status-m-{{ row.id }}" name="status" data-appt-id="{{ row.id }}" data-committed-status="{{ row.status }}">
                   <option value="new" {% if row.status == 'new' %}selected{% endif %}>{{ status_labels.new[admin_lang] }}</option>
                   <option value="confirmed" {% if row.status == 'confirmed' %}selected{% endif %}>{{ status_labels.confirmed[admin_lang] }}</option>
                   <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
                 </select>
-              </form>
+              </div>
               <form class="admin-card__delete-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
-                <button class="btn btn--delete-card btn--delete-compact" type="submit">{{ at.delete }}</button>
+                <button class="btn btn--delete-card btn--delete-compact" type="submit" data-i18n="delete">{{ at.delete }}</button>
               </form>
             </div>
           </article>
@@ -91,12 +89,12 @@
           <table class="table">
             <thead>
               <tr>
-                <th>{{ at.table_name }}</th>
-                <th>{{ at.table_address }}</th>
-                <th>{{ at.table_phone }}</th>
-                <th>{{ at.table_datetime }}</th>
-                <th>{{ at.table_created }}</th>
-                <th>{{ at.table_status }}</th>
+                <th data-i18n="table_name">{{ at.table_name }}</th>
+                <th data-i18n="table_address">{{ at.table_address }}</th>
+                <th data-i18n="table_phone">{{ at.table_phone }}</th>
+                <th data-i18n="table_datetime">{{ at.table_datetime }}</th>
+                <th data-i18n="table_created">{{ at.table_created }}</th>
+                <th data-i18n="table_status">{{ at.table_status }}</th>
                 <th></th>
               </tr>
             </thead>
@@ -109,17 +107,18 @@
                 <td class="cell-datetime"><span class="pill-datetime">{{ row.preferred_date }} · {{ row.preferred_time }}</span></td>
                 <td class="muted small">{{ row.created_at }}</td>
                 <td>
-                  <form class="inline-form" method="post" action="/admin/status/{{ row.id }}">
-                    <select class="field__input field__input--sm" name="status" onchange="this.form.submit()">
+                  <div class="inline-form inline-form--pseudo">
+                    <label class="sr-only" for="status-d-{{ row.id }}">{{ at.table_status }}</label>
+                    <select class="field__input field__input--sm js-admin-status-select" id="status-d-{{ row.id }}" name="status" data-appt-id="{{ row.id }}" data-committed-status="{{ row.status }}">
                       <option value="new" {% if row.status == 'new' %}selected{% endif %}>{{ status_labels.new[admin_lang] }}</option>
                       <option value="confirmed" {% if row.status == 'confirmed' %}selected{% endif %}>{{ status_labels.confirmed[admin_lang] }}</option>
                       <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
                     </select>
-                  </form>
+                  </div>
                 </td>
                 <td>
                   <form class="inline-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
-                    <button class="btn btn--danger btn--sm" type="submit">{{ at.delete }}</button>
+                    <button class="btn btn--danger btn--sm" type="submit" data-i18n="delete">{{ at.delete }}</button>
                   </form>
                 </td>
               </tr>
@@ -134,5 +133,131 @@
   </main>
 
   {% include "_site_footer.html" %}
+  {% if logged_in and admin_i18n_json %}
+  <script id="admin-i18n-data" type="application/json">{{ admin_i18n_json | safe }}</script>
+  <script>
+  (function () {
+    var dataEl = document.getElementById("admin-i18n-data");
+    if (!dataEl) return;
+    var DATA = JSON.parse(dataEl.textContent);
+
+    function applyAdminLang(lang) {
+      var t = DATA.ui[lang];
+      if (!t) return;
+      document.documentElement.lang = lang;
+      document.title = t.title;
+      document.querySelectorAll("[data-i18n]").forEach(function (el) {
+        var key = el.getAttribute("data-i18n");
+        if (key && t[key] != null) el.textContent = t[key];
+      });
+      var rb = document.querySelector(".admin-refresh-btn");
+      if (rb && t.refresh) {
+        rb.setAttribute("aria-label", t.refresh);
+        rb.setAttribute("title", t.refresh);
+      }
+      document.querySelectorAll("select.js-admin-status-select option").forEach(function (opt) {
+        var v = opt.value;
+        if (v && DATA.status[v] && DATA.status[v][lang]) opt.textContent = DATA.status[v][lang];
+      });
+    }
+
+    function setAdminLang(lang) {
+      return fetch("/admin/lang", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ lang: lang }),
+        credentials: "same-origin",
+      }).then(function (res) {
+        if (!res.ok) throw new Error("lang");
+        try {
+          localStorage.setItem("admin_lang", lang);
+        } catch (e) {}
+        applyAdminLang(lang);
+        var s = document.getElementById("admin-lang");
+        if (s) {
+          s.value = lang;
+          s.dataset.prevLangSelect = lang;
+        }
+      });
+    }
+
+    function bindAdminLangSelect() {
+      var sel = document.getElementById("admin-lang");
+      if (!sel) return;
+      sel.addEventListener("focus", function () {
+        sel.dataset.prevLangSelect = sel.value;
+      });
+      sel.addEventListener("change", function (e) {
+        var prev = sel.dataset.prevLangSelect || e.target.value;
+        setAdminLang(e.target.value).catch(function () {
+          sel.value = prev;
+        });
+      });
+    }
+
+    function bindStatusSelects() {
+      document.querySelectorAll("select.js-admin-status-select").forEach(function (sel) {
+        sel.addEventListener("change", function () {
+          var id = sel.getAttribute("data-appt-id");
+          var committed = sel.getAttribute("data-committed-status");
+          var next = sel.value;
+          var card = sel.closest(".admin-card--compact");
+          fetch("/admin/status/" + id, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+            body: new URLSearchParams({ status: next }),
+            credentials: "same-origin",
+          })
+            .then(function (r) {
+              if (!r.ok) throw new Error("status");
+              return r.json();
+            })
+            .then(function (data) {
+              sel.setAttribute("data-committed-status", data.status);
+              if (card) {
+                card.classList.remove(
+                  "admin-card--status-new",
+                  "admin-card--status-confirmed",
+                  "admin-card--status-completed"
+                );
+                card.classList.add("admin-card--status-" + data.status);
+              }
+            })
+            .catch(function () {
+              sel.value = committed;
+            });
+        });
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      var serverLang = document.body.getAttribute("data-admin-lang") || "de";
+      var sel = document.getElementById("admin-lang");
+      if (sel) sel.dataset.prevLangSelect = serverLang;
+      bindAdminLangSelect();
+      var stored = null;
+      try {
+        stored = localStorage.getItem("admin_lang");
+      } catch (e) {}
+      if (!stored || ["de", "ru", "en"].indexOf(stored) === -1) {
+        try {
+          localStorage.setItem("admin_lang", serverLang);
+        } catch (e) {}
+      } else if (stored !== serverLang) {
+        setAdminLang(stored)
+          .catch(function () {})
+          .finally(function () {
+            bindStatusSelects();
+          });
+        return;
+      }
+      bindStatusSelects();
+    });
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

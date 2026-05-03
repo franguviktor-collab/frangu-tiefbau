@@ -1,11 +1,12 @@
 """Frangu Tiefbau — Glasfaser Termine (FastAPI)."""
 
+import json
 import os
 from typing import Annotated, Literal
 
 import dotenv
 from fastapi import FastAPI, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from starlette.middleware.sessions import SessionMiddleware
@@ -188,6 +189,21 @@ def _admin_ok(request: Request) -> bool:
     return bool(request.session.get("admin"))
 
 
+def _admin_i18n_json() -> str:
+    return json.dumps({"ui": ADMIN_UI, "status": ADMIN_STATUS_LABELS}, ensure_ascii=False)
+
+
+def _wants_json_status_update(request: Request) -> bool:
+    accept = request.headers.get("accept") or ""
+    return "application/json" in accept
+
+
+COOKIE_ADMIN_LANG = {
+    "max_age": 60 * 60 * 24 * 365,
+    "httponly": False,
+}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def form_page(request: Request, lang: str | None = None):
     l = _normalize_lang(lang or request.cookies.get("lang"))
@@ -292,25 +308,16 @@ async def admin_login_post(
             admin_lang=al,
             at=at,
             status_labels=ADMIN_STATUS_LABELS,
+            admin_i18n_json="",
             **_public_ctx(),
         )
         resp = HTMLResponse(content=html, status_code=status.HTTP_401_UNAUTHORIZED)
-        resp.set_cookie(
-            "admin_lang",
-            al,
-            max_age=60 * 60 * 24 * 365,
-            httponly=False,
-        )
+        resp.set_cookie("admin_lang", al, **COOKIE_ADMIN_LANG)
         return resp
     request.session["admin"] = True
     request.session["admin_lang"] = al
     resp = RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
-    resp.set_cookie(
-        "admin_lang",
-        al,
-        max_age=60 * 60 * 24 * 365,
-        httponly=False,
-    )
+    resp.set_cookie("admin_lang", al, **COOKIE_ADMIN_LANG)
     return resp
 
 
@@ -335,21 +342,18 @@ async def admin_page(request: Request, lang: str | None = None):
             admin_lang=al,
             at=at,
             status_labels=ADMIN_STATUS_LABELS,
+            admin_i18n_json="",
             **_public_ctx(),
         )
         resp = HTMLResponse(content=html)
         if lang in ("de", "ru", "en"):
-            resp.set_cookie(
-                "admin_lang",
-                lang,
-                max_age=60 * 60 * 24 * 365,
-                httponly=False,
-            )
+            resp.set_cookie("admin_lang", _normalize_lang(lang), **COOKIE_ADMIN_LANG)
         return resp
 
     if lang in ("de", "ru", "en"):
-        request.session["admin_lang"] = lang
-        al = lang  # type: ignore[assignment]
+        al_n = _normalize_lang(lang)
+        request.session["admin_lang"] = al_n
+        al = al_n
         at = ADMIN_UI[al]
 
     rows = db.list_appointments()
@@ -362,10 +366,11 @@ async def admin_page(request: Request, lang: str | None = None):
             admin_lang=al,
             at=at,
             status_labels=ADMIN_STATUS_LABELS,
+            admin_i18n_json=_admin_i18n_json(),
             **_public_ctx(),
         )
     )
-    resp.set_cookie("admin_lang", al, max_age=60 * 60 * 24 * 365, httponly=False)
+    resp.set_cookie("admin_lang", al, **COOKIE_ADMIN_LANG)
     return resp
 
 
@@ -375,6 +380,20 @@ async def admin_delete(request: Request, appt_id: int):
         raise HTTPException(status_code=401)
     db.delete_appointment(appt_id)
     return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/admin/lang")
+async def admin_set_lang(
+    request: Request,
+    lang: Annotated[str, Form()],
+):
+    if not _admin_ok(request):
+        raise HTTPException(status_code=401)
+    al = _normalize_lang(lang)
+    request.session["admin_lang"] = al
+    r = JSONResponse({"ok": True, "lang": al})
+    r.set_cookie("admin_lang", al, **COOKIE_ADMIN_LANG)
+    return r
 
 
 @app.post("/admin/status/{appt_id}")
@@ -388,4 +407,6 @@ async def admin_status(
     if status_value not in ("new", "confirmed", "completed"):
         raise HTTPException(status_code=400)
     db.set_appointment_status(appt_id, status_value)
+    if _wants_json_status_update(request):
+        return JSONResponse({"ok": True, "status": status_value})
     return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
