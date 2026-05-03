@@ -74,18 +74,16 @@
               value="{{ form_data.phone if form_data is defined else '' }}">
           </label>
 
-          <div class="grid">
-            <label class="field">
-              <span class="field__label">{{ t.preferred_date }}</span>
-              <input class="field__input" type="date" name="preferred_date" required
-                value="{{ form_data.preferred_date if form_data is defined else '' }}">
-            </label>
-            <label class="field">
-              <span class="field__label">{{ t.preferred_time }}</span>
-              <input class="field__input" type="time" name="preferred_time" required
-                value="{{ form_data.preferred_time if form_data is defined else '' }}">
-            </label>
-          </div>
+          <label class="field">
+            <span class="field__label">{{ t.preferred_date }}</span>
+            <input class="field__input" type="date" name="preferred_date" required
+              value="{{ form_data.preferred_date if form_data is defined else '' }}">
+          </label>
+          <label class="field">
+            <span class="field__label">{{ t.preferred_time }}</span>
+            <input class="field__input" type="time" name="preferred_time" required
+              value="{{ form_data.preferred_time if form_data is defined else '' }}">
+          </label>
 
           <button class="btn btn--cta" type="submit">{{ t.submit }}</button>
         </form>
