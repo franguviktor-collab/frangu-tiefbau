@@ -823,6 +823,19 @@ a.header-contact:hover {
   .table-wrap--desktop {
     display: none !important;
   }
+
+  .admin-card__nameinline {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .admin-card__addr {
+    font-size: 1rem;
+  }
+
+  .admin-card__tel {
+    font-size: 1rem;
+  }
 }
 
 @media (min-width: 641px) {
