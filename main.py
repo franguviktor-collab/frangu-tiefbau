@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import smtplib
@@ -22,6 +23,22 @@ import database as db
 
 dotenv.load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+GMAIL_SMTP_LOGIN = "frangu.tiefbau@gmail.com"
+
+
+def _configure_stderr_logging() -> None:
+    """Serverless (e.g. Vercel) often has no handlers; ensure SMTP diagnostics reach logs."""
+    root = logging.getLogger()
+    if root.handlers:
+        return
+    level_name = (os.getenv("LOG_LEVEL") or "INFO").upper().strip()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(level=level, format="%(levelname)s %(name)s %(message)s")
+
+
+_configure_stderr_logging()
 CONTACT_PHONE = os.getenv("CONTACT_PHONE", "+49 174 211 3689")
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "frangu.tiefbau@gmail.com")
 FOOTER_ADDRESS = os.getenv(
@@ -71,12 +88,26 @@ def _send_reschedule_email_de(
     new_date_iso: str,
     new_time: str,
 ) -> None:
-    pwd = os.getenv("GMAIL_APP_PASSWORD", "").strip()
+    raw_pwd = (
+        os.environ.get("GMAIL_APP_PASSWORD")
+        or os.getenv("GMAIL_APP_PASSWORD")
+        or ""
+    )
+    # App passwords pasted as "abcd efgh ijkl mnop" must be contiguous for SMTP
+    pwd = "".join(str(raw_pwd).split())
+    login_addr = (
+        (
+            os.environ.get("GMAIL_LOGIN")
+            or os.getenv("GMAIL_LOGIN")
+            or ""
+        ).strip()
+        or GMAIL_SMTP_LOGIN
+    )
     if not pwd:
+        logger.warning(
+            "reschedule SMTP skipped: GMAIL_APP_PASSWORD unset or empty in environment"
+        )
         return
-    sender = os.getenv("GMAIL_SENDER", "frangu.tiefbau@gmail.com").strip()
-    if not sender:
-        sender = "frangu.tiefbau@gmail.com"
 
     name = (first_name or "").strip() or "Kundin/Kunde"
     date_de = _format_date_de(new_date_iso)
@@ -96,15 +127,31 @@ def _send_reschedule_email_de(
 
     msg = EmailMessage()
     msg["Subject"] = "Ihr Glasfaser-Termin wurde verschoben"
-    msg["From"] = sender
+    msg["From"] = login_addr
     msg["To"] = recipient
     msg.set_content(body)
 
-    context = ssl.create_default_context()
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
-        smtp.starttls(context=context)
-        smtp.login(sender, pwd)
-        smtp.send_message(msg)
+    ctx = ssl.create_default_context()
+
+    logger.info(
+        "reschedule SMTP: connecting smtp.gmail.com:587 STARTTLS, login=%s, to=%s",
+        login_addr,
+        recipient,
+    )
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=ctx)
+            smtp.ehlo()
+            smtp.login(login_addr, pwd)
+            smtp.send_message(msg)
+        logger.info("reschedule SMTP: message sent OK to=%s", recipient)
+    except Exception:
+        logger.exception(
+            "reschedule SMTP failed (login=%s, to=%s)",
+            login_addr,
+            recipient,
+        )
 
 
 Lang = Literal["de", "ru", "en"]
@@ -638,11 +685,20 @@ async def admin_reschedule(
         raise HTTPException(status_code=404, detail="not found") from None
 
     to_addr = (apt.get("email") or "").strip()
-    if to_addr:
-        try:
-            _send_reschedule_email_de(to_addr, apt.get("first_name") or "", nd, nt)
-        except Exception:
-            pass
+    if not to_addr:
+        logger.info(
+            "reschedule appt_id=%s: no client email stored, notification skipped",
+            appt_id,
+        )
+    else:
+        logger.info(
+            "reschedule appt_id=%s: attempting email to %s",
+            appt_id,
+            to_addr,
+        )
+        _send_reschedule_email_de(
+            to_addr, apt.get("first_name") or "", nd, nt
+        )
 
     if _wants_json(request):
         return JSONResponse(
