@@ -24,7 +24,7 @@ dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Resend: works without domain verification for testing (replace after domain setup)
-RESEND_FROM_DEFAULT = "onboarding@resend.dev"
+RESEND_FROM_DEFAULT = "Frangu Tiefbau <onboarding@resend.dev>"
 
 
 def _configure_stderr_logging() -> None:
