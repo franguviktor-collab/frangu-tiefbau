@@ -6,13 +6,11 @@ import json
 import logging
 import os
 import re
-import smtplib
-import ssl
 from datetime import datetime
-from email.message import EmailMessage
 from typing import Annotated, Literal
 
 import dotenv
+import resend
 from fastapi import FastAPI, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +23,8 @@ dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-GMAIL_SMTP_LOGIN = "frangu.tiefbau@gmail.com"
+# Resend: works without domain verification for testing (replace after domain setup)
+RESEND_FROM_DEFAULT = "onboarding@resend.dev"
 
 
 def _configure_stderr_logging() -> None:
@@ -88,29 +87,25 @@ def _send_reschedule_email_de(
     new_date_iso: str,
     new_time: str,
 ) -> None:
-    raw_pwd = (
-        os.environ.get("GMAIL_APP_PASSWORD")
-        or os.getenv("GMAIL_APP_PASSWORD")
-        or ""
+    api_key = (
+        (os.environ.get("RESEND_API_KEY") or os.getenv("RESEND_API_KEY") or "")
+        .strip()
     )
-    # App passwords pasted as "abcd efgh ijkl mnop" must be contiguous for SMTP
-    pwd = "".join(str(raw_pwd).split())
-    login_addr = (
-        (
-            os.environ.get("GMAIL_LOGIN")
-            or os.getenv("GMAIL_LOGIN")
-            or ""
-        ).strip()
-        or GMAIL_SMTP_LOGIN
-    )
-    if not pwd:
+    if not api_key:
         logger.warning(
-            "reschedule SMTP skipped: GMAIL_APP_PASSWORD unset or empty in environment"
+            "reschedule Resend skipped: RESEND_API_KEY unset or empty in environment"
         )
         return
 
+    from_addr = (
+        (os.environ.get("RESEND_FROM") or os.getenv("RESEND_FROM") or "").strip()
+        or RESEND_FROM_DEFAULT
+    )
+
     name = (first_name or "").strip() or "Kundin/Kunde"
     date_de = _format_date_de(new_date_iso)
+    phone_company = "+49 174 211 3689"
+    email_company = "frangu.tiefbau@gmail.com"
 
     body = (
         f"Guten Tag {name},\n\n"
@@ -118,38 +113,39 @@ def _send_reschedule_email_de(
         "bei Frangu Tiefbau verschoben wurde.\n\n"
         f"Neuer Termin: {date_de} um {new_time} Uhr\n\n"
         "Bei Rückfragen erreichen Sie uns unter:\n"
-        f"Telefon: {CONTACT_PHONE}\n"
-        f"E-Mail: {CONTACT_EMAIL}\n"
-        f"Adresse: {FOOTER_ADDRESS}\n\n"
+        f"Telefon: {phone_company}\n"
+        f"E-Mail: {email_company}\n\n"
         "Mit freundlichen Grüßen\n"
         "Frangu Tiefbau\n"
     )
 
-    msg = EmailMessage()
-    msg["Subject"] = "Ihr Glasfaser-Termin wurde verschoben"
-    msg["From"] = login_addr
-    msg["To"] = recipient
-    msg.set_content(body)
+    resend.api_key = api_key
 
-    ctx = ssl.create_default_context()
+    params: resend.Emails.SendParams = {
+        "from": from_addr,
+        "to": [recipient],
+        "subject": "Ihr Glasfaser-Termin wurde verschoben",
+        "text": body,
+        "reply_to": email_company,
+    }
 
     logger.info(
-        "reschedule SMTP: connecting smtp.gmail.com:587 STARTTLS, login=%s, to=%s",
-        login_addr,
+        "reschedule Resend: sending from=%s to=%s",
+        from_addr,
         recipient,
     )
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
-            smtp.ehlo()
-            smtp.starttls(context=ctx)
-            smtp.ehlo()
-            smtp.login(login_addr, pwd)
-            smtp.send_message(msg)
-        logger.info("reschedule SMTP: message sent OK to=%s", recipient)
+        out = resend.Emails.send(params)
+        eid = out.get("id") if isinstance(out, dict) else getattr(out, "id", None)
+        logger.info(
+            "reschedule Resend: message sent OK id=%s to=%s",
+            eid,
+            recipient,
+        )
     except Exception:
         logger.exception(
-            "reschedule SMTP failed (login=%s, to=%s)",
-            login_addr,
+            "reschedule Resend failed (from=%s, to=%s)",
+            from_addr,
             recipient,
         )
 
