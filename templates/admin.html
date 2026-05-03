@@ -56,29 +56,32 @@
         {% else %}
         <div class="admin-cards" aria-label="Termine Liste">
           {% for row in rows %}
-          <article class="admin-card">
-            <div class="admin-card__head">
-              <h2 class="admin-card__name">{{ row.first_name }} {{ row.last_name }}</h2>
-              <p class="admin-card__address">{{ row.street }}, {{ row.plz }} {{ row.city }}</p>
+          <article class="admin-card admin-card--compact">
+            <div class="admin-card__row1">
+              <span class="admin-card__num">#{{ loop.index }}</span>
+              <span class="admin-card__dot" aria-hidden="true">·</span>
+              <span class="admin-card__nameinline">{{ row.first_name }} {{ row.last_name }}</span>
+              <span class="admin-card__dot" aria-hidden="true">·</span>
+              <span class="pill-datetime pill-datetime--compact">{{ row.preferred_date }} · {{ row.preferred_time }}</span>
             </div>
-            <p class="admin-card__phone">
-              <a href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a>
-            </p>
-            <div class="admin-card__datetime">
-              <span class="pill-datetime pill-datetime--block">{{ row.preferred_date }} · {{ row.preferred_time }}</span>
+            <div class="admin-card__row2">
+              <span class="admin-card__addr">{{ row.street }}, {{ row.plz }} {{ row.city }}</span>
+              <span class="admin-card__dot" aria-hidden="true">·</span>
+              <a class="admin-card__tel" href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a>
             </div>
-            <p class="admin-card__created muted small">{{ at.table_created }}: {{ row.created_at }}</p>
-            <form class="admin-card__status-form" method="post" action="/admin/status/{{ row.id }}">
-              <label class="field__label admin-card__label" for="status-m-{{ row.id }}">{{ at.table_status }}</label>
-              <select class="field__input admin-card__select" id="status-m-{{ row.id }}" name="status" onchange="this.form.submit()">
-                <option value="new" {% if row.status == 'new' %}selected{% endif %}>{{ status_labels.new[admin_lang] }}</option>
-                <option value="confirmed" {% if row.status == 'confirmed' %}selected{% endif %}>{{ status_labels.confirmed[admin_lang] }}</option>
-                <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
-              </select>
-            </form>
-            <form class="admin-card__delete-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
-              <button class="btn btn--danger btn--delete-card" type="submit">{{ at.delete }}</button>
-            </form>
+            <div class="admin-card__row3">
+              <form class="admin-card__status-form" method="post" action="/admin/status/{{ row.id }}">
+                <label class="sr-only" for="status-m-{{ row.id }}">{{ at.table_status }}</label>
+                <select class="field__input admin-card__select admin-card__select--compact" id="status-m-{{ row.id }}" name="status" onchange="this.form.submit()">
+                  <option value="new" {% if row.status == 'new' %}selected{% endif %}>{{ status_labels.new[admin_lang] }}</option>
+                  <option value="confirmed" {% if row.status == 'confirmed' %}selected{% endif %}>{{ status_labels.confirmed[admin_lang] }}</option>
+                  <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
+                </select>
+              </form>
+              <form class="admin-card__delete-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
+                <button class="btn btn--delete-card btn--delete-compact" type="submit">{{ at.delete }}</button>
+              </form>
+            </div>
           </article>
           {% endfor %}
         </div>
