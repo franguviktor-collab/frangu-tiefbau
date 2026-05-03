@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="{{ admin_lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ at.title }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="admin-body site-page">
+  {% set lang = admin_lang %}
+  {% include "_site_header.html" %}
+
+  <main class="site-main">
+    <div class="shell shell--wide">
+      <header class="admin-bar">
+        <span class="admin-bar__title">Admin · Glasfaser Termine</span>
+        {% if logged_in %}
+        <div class="header__actions">
+          <form class="inline-form" method="get" action="/admin">
+            <label class="sr-only" for="admin-lang">{{ at.lang_admin }}</label>
+            <select class="field__input field__input--sm" id="admin-lang" name="lang" onchange="this.form.submit()">
+              <option value="de" {% if admin_lang == 'de' %}selected{% endif %}>DE</option>
+              <option value="ru" {% if admin_lang == 'ru' %}selected{% endif %}>RU</option>
+              <option value="en" {% if admin_lang == 'en' %}selected{% endif %}>EN</option>
+            </select>
+          </form>
+          <a class="btn btn--ghost btn--sm" href="/admin/logout">{{ at.logout }}</a>
+        </div>
+        {% else %}
+        <nav class="lang" aria-label="{{ at.lang_admin }}">
+          <a href="/admin?lang=de" class="lang__link{% if admin_lang == 'de' %} lang__link--active{% endif %}">DE</a>
+          <a href="/admin?lang=ru" class="lang__link{% if admin_lang == 'ru' %} lang__link--active{% endif %}">RU</a>
+          <a href="/admin?lang=en" class="lang__link{% if admin_lang == 'en' %} lang__link--active{% endif %}">EN</a>
+        </nav>
+        {% endif %}
+      </header>
+
+      <div class="card card--flush">
+        {% if not logged_in %}
+        <h1 class="card__title">{{ at.login_title }}</h1>
+        {% if login_error %}
+        <p class="banner banner--error" role="alert">{{ at.login_err }}</p>
+        {% endif %}
+        <form class="form form--narrow" method="post" action="/admin/login">
+          <input type="hidden" name="admin_lang" value="{{ admin_lang }}">
+          <label class="field">
+            <span class="field__label">{{ at.password }}</span>
+            <input class="field__input" type="password" name="password" required autocomplete="current-password">
+          </label>
+          <button class="btn" type="submit">{{ at.login_btn }}</button>
+        </form>
+        {% else %}
+
+        {% if not rows %}
+        <p class="muted padded">{{ at.empty }}</p>
+        {% else %}
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>{{ at.table_name }}</th>
+                <th>{{ at.table_address }}</th>
+                <th>{{ at.table_phone }}</th>
+                <th>{{ at.table_datetime }}</th>
+                <th>{{ at.table_created }}</th>
+                <th>{{ at.table_status }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td>{{ row.first_name }} {{ row.last_name }}</td>
+                <td>{{ row.street }}, {{ row.plz }} {{ row.city }}</td>
+                <td><a href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a></td>
+                <td class="cell-datetime"><span class="pill-datetime">{{ row.preferred_date }} · {{ row.preferred_time }}</span></td>
+                <td class="muted small">{{ row.created_at }}</td>
+                <td>
+                  <form class="inline-form" method="post" action="/admin/status/{{ row.id }}">
+                    <select class="field__input field__input--sm" name="status" onchange="this.form.submit()">
+                      <option value="new" {% if row.status == 'new' %}selected{% endif %}>{{ status_labels.new[admin_lang] }}</option>
+                      <option value="confirmed" {% if row.status == 'confirmed' %}selected{% endif %}>{{ status_labels.confirmed[admin_lang] }}</option>
+                      <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
+                    </select>
+                  </form>
+                </td>
+                <td>
+                  <form class="inline-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
+                    <button class="btn btn--danger btn--sm" type="submit">{{ at.delete }}</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  {% include "_site_footer.html" %}
+</body>
+</html>

@@ -1,0 +1,13 @@
+<footer class="site-footer" role="contentinfo">
+  <div class="site-footer__inner site-footer__professional">
+    <p class="site-footer__brand">© 2026 Frangu Tiefbau GmbH</p>
+    <address class="site-footer__address" translate="no">{{ contact_address }}</address>
+    <p class="site-footer__row">
+      Telefon: <a href="tel:{{ contact_phone | replace(' ', '') | replace('-', '') }}">{{ contact_phone }}</a>
+    </p>
+    <p class="site-footer__row">
+      E-Mail: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
+    </p>
+    <p class="site-footer__legal">Impressum <span class="site-footer__sep" aria-hidden="true">|</span> Datenschutz</p>
+  </div>
+</footer>

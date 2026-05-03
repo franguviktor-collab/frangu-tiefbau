@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.brand }} — Termin</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="site-page">
+  {% include "_site_header.html" %}
+
+  <main class="site-main">
+    <div class="shell shell--main">
+      <div class="card card--center">
+        <div class="success-icon" aria-hidden="true">✓</div>
+        <h1 class="success-headline">Termin erhalten!</h1>
+        <p class="success-lead">Wir melden uns in 1–2 Tagen.</p>
+        <p class="muted">{{ t.success_sub }}</p>
+        <a class="btn btn--secondary" href="/?lang={{ back_lang }}">← {{ t.back }}</a>
+      </div>
+    </div>
+  </main>
+
+  {% include "_site_footer.html" %}
+</body>
+</html>

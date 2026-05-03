@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.title }} — Frangu Tiefbau</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="site-page">
+  {% include "_site_header.html" %}
+
+  <main class="site-main">
+    <div class="shell shell--main">
+      <div class="toolbar-row">
+        <nav class="lang lang--toolbar" aria-label="{{ t.lang_label }}">
+          <a href="/?lang=de" class="lang__link{% if lang == 'de' %} lang__link--active{% endif %}">DE</a>
+          <a href="/?lang=ru" class="lang__link{% if lang == 'ru' %} lang__link--active{% endif %}">RU</a>
+          <a href="/?lang=en" class="lang__link{% if lang == 'en' %} lang__link--active{% endif %}">EN</a>
+        </nav>
+      </div>
+
+      <div class="card">
+        <h1 class="card__title card__title--form">{{ t.subtitle }}</h1>
+
+        <div class="form-intro" role="region" aria-label="Info">
+          {% for line in t.form_intro.split("\n") %}
+          {% if line.strip() %}<p class="form-intro__line">{{ line }}</p>{% endif %}
+          {% endfor %}
+        </div>
+
+        {% if error %}
+        <p class="banner banner--error" role="alert">{{ t.fill_error }}</p>
+        {% endif %}
+
+        <form class="form" method="post" action="/submit" novalidate>
+          <input type="hidden" name="lang" value="{{ lang }}">
+
+          <div class="grid">
+            <label class="field">
+              <span class="field__label">{{ t.first_name }}</span>
+              <input class="field__input" type="text" name="first_name" required autocomplete="given-name"
+                value="{{ form_data.first_name if form_data is defined else '' }}">
+            </label>
+            <label class="field">
+              <span class="field__label">{{ t.last_name }}</span>
+              <input class="field__input" type="text" name="last_name" required autocomplete="family-name"
+                value="{{ form_data.last_name if form_data is defined else '' }}">
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field__label">{{ t.street }}</span>
+            <input class="field__input" type="text" name="street" required autocomplete="street-address"
+              value="{{ form_data.street if form_data is defined else '' }}">
+          </label>
+
+          <div class="grid">
+            <label class="field">
+              <span class="field__label">{{ t.plz }}</span>
+              <input class="field__input" type="text" name="plz" required autocomplete="postal-code"
+                value="{{ form_data.plz if form_data is defined else '' }}">
+            </label>
+            <label class="field">
+              <span class="field__label">{{ t.city }}</span>
+              <input class="field__input" type="text" name="city" required autocomplete="address-level2"
+                value="{{ form_data.city if form_data is defined else '' }}">
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field__label">{{ t.phone }}</span>
+            <input class="field__input" type="tel" name="phone" required autocomplete="tel"
+              value="{{ form_data.phone if form_data is defined else '' }}">
+          </label>
+
+          <div class="grid">
+            <label class="field">
+              <span class="field__label">{{ t.preferred_date }}</span>
+              <input class="field__input" type="date" name="preferred_date" required
+                value="{{ form_data.preferred_date if form_data is defined else '' }}">
+            </label>
+            <label class="field">
+              <span class="field__label">{{ t.preferred_time }}</span>
+              <input class="field__input" type="time" name="preferred_time" required
+                value="{{ form_data.preferred_time if form_data is defined else '' }}">
+            </label>
+          </div>
+
+          <button class="btn btn--cta" type="submit">{{ t.submit }}</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  {% include "_site_footer.html" %}
+</body>
+</html>
