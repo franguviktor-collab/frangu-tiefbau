@@ -23,8 +23,7 @@ dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Resend: works without domain verification for testing (replace after domain setup)
-RESEND_FROM_DEFAULT = "Frangu Tiefbau <onboarding@resend.dev>"
+RESEND_SCHEDULE_FROM = "Frangu Tiefbau <onboarding@resend.dev>"
 
 
 def _configure_stderr_logging() -> None:
@@ -97,24 +96,23 @@ def _send_reschedule_email_de(
         )
         return
 
-    from_addr = (
-        (os.environ.get("RESEND_FROM") or os.getenv("RESEND_FROM") or "").strip()
-        or RESEND_FROM_DEFAULT
-    )
+    from_addr = RESEND_SCHEDULE_FROM
 
     name = (first_name or "").strip() or "Kundin/Kunde"
     date_de = _format_date_de(new_date_iso)
-    phone_company = "+49 174 211 3689"
-    email_company = "frangu.tiefbau@gmail.com"
 
     body = (
         f"Guten Tag {name},\n\n"
-        "wir teilen Ihnen mit, dass Ihr Termin für den Glasfaser-Hausanschluss "
-        "bei Frangu Tiefbau verschoben wurde.\n\n"
+        "wir möchten Sie darüber informieren, dass wir Ihren gewünschten Termin leider nicht "
+        "einhalten können, da wir aufgrund unseres Arbeitsablaufs etwas mehr Zeit benötigen "
+        "als geplant.\n\n"
+        "Daher wurde Ihr Termin für den Glasfaser-Hausanschluss verschoben.\n\n"
         f"Neuer Termin: {date_de} um {new_time} Uhr\n\n"
+        "Wir bitten Sie, uns zu diesem neuen Zeitpunkt zu Hause zu empfangen. Sollten Sie Fragen "
+        "haben oder der Termin nicht passen, kontaktieren Sie uns bitte.\n\n"
         "Bei Rückfragen erreichen Sie uns unter:\n"
-        f"Telefon: {phone_company}\n"
-        f"E-Mail: {email_company}\n\n"
+        "Telefon: +49 174 211 3689\n"
+        "E-Mail: frangu.tiefbau@gmail.com\n\n"
         "Mit freundlichen Grüßen\n"
         "Frangu Tiefbau\n"
     )
@@ -126,7 +124,7 @@ def _send_reschedule_email_de(
         "to": [recipient],
         "subject": "Ihr Glasfaser-Termin wurde verschoben",
         "text": body,
-        "reply_to": email_company,
+        "reply_to": "frangu.tiefbau@gmail.com",
     }
 
     logger.info(
