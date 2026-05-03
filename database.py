@@ -1,60 +1,67 @@
-"""SQLite persistence for Glasfaser appointments."""
+"""PostgreSQL persistence for Glasfaser appointments (Neon / DATABASE_URL)."""
 
 import os
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 dotenv.load_dotenv()
 
 
-def _db_path() -> str:
-    explicit = os.getenv("SQLITE_PATH")
-    if explicit:
-        return explicit
-    if os.getenv("VERCEL"):
-        return "/tmp/appointments.db"
-    return str(Path(__file__).resolve().parent / "appointments.db")
-
-
-def init_db() -> None:
-    path = _db_path()
-    parent = Path(path).parent
-    if parent and str(parent) not in (".", ""):
-        parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(path) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS appointments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                first_name TEXT NOT NULL,
-                last_name TEXT NOT NULL,
-                street TEXT NOT NULL,
-                plz TEXT NOT NULL,
-                city TEXT NOT NULL,
-                phone TEXT NOT NULL,
-                preferred_date TEXT NOT NULL,
-                preferred_time TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'new'
-            )
-            """
+def _database_url() -> str:
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Add a Neon connection string "
+            "(postgresql://...) to your environment."
         )
-        conn.commit()
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://") :]
+    return url
 
 
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(_db_path())
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(_database_url())
     try:
         yield conn
     finally:
         conn.close()
+
+
+def init_db() -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS appointments (
+                    id SERIAL PRIMARY KEY,
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    street TEXT NOT NULL,
+                    plz TEXT NOT NULL,
+                    city TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    preferred_date TEXT NOT NULL,
+                    preferred_time TEXT NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    status TEXT NOT NULL DEFAULT 'new'
+                )
+                """
+            )
+        conn.commit()
+
+
+def _row_dict(r: dict[str, Any]) -> dict[str, Any]:
+    out = dict(r)
+    ca = out.get("created_at")
+    if isinstance(ca, datetime):
+        out["created_at"] = ca.replace(tzinfo=None).isoformat() + "Z"
+    return out
 
 
 def create_appointment(
@@ -67,47 +74,51 @@ def create_appointment(
     preferred_date: str,
     preferred_time: str,
 ) -> int:
-    created = datetime.utcnow().isoformat() + "Z"
     with get_conn() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO appointments (
-                first_name, last_name, street, plz, city, phone,
-                preferred_date, preferred_time, created_at, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')
-            """,
-            (
-                first_name.strip(),
-                last_name.strip(),
-                street.strip(),
-                plz.strip(),
-                city.strip(),
-                phone.strip(),
-                preferred_date.strip(),
-                preferred_time.strip(),
-                created,
-            ),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO appointments (
+                    first_name, last_name, street, plz, city, phone,
+                    preferred_date, preferred_time, status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'new')
+                RETURNING id
+                """,
+                (
+                    first_name.strip(),
+                    last_name.strip(),
+                    street.strip(),
+                    plz.strip(),
+                    city.strip(),
+                    phone.strip(),
+                    preferred_date.strip(),
+                    preferred_time.strip(),
+                ),
+            )
+            new_id = cur.fetchone()[0]
         conn.commit()
-        return int(cur.lastrowid)
+        return int(new_id)
 
 
 def list_appointments() -> list[dict[str, Any]]:
     with get_conn() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, first_name, last_name, street, plz, city, phone,
-                   preferred_date, preferred_time, created_at, status
-            FROM appointments
-            ORDER BY created_at DESC
-            """
-        ).fetchall()
-        return [dict(r) for r in rows]
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, first_name, last_name, street, plz, city, phone,
+                       preferred_date, preferred_time, created_at, status
+                FROM appointments
+                ORDER BY created_at DESC
+                """
+            )
+            rows = cur.fetchall()
+    return [_row_dict(r) for r in rows]
 
 
 def delete_appointment(appt_id: int) -> None:
     with get_conn() as conn:
-        conn.execute("DELETE FROM appointments WHERE id = ?", (appt_id,))
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM appointments WHERE id = %s", (appt_id,))
         conn.commit()
 
 
@@ -116,8 +127,9 @@ def set_appointment_status(appt_id: int, status: str) -> None:
     if status not in allowed:
         raise ValueError("invalid status")
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE appointments SET status = ? WHERE id = ?",
-            (status, appt_id),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE appointments SET status = %s WHERE id = %s",
+                (status, appt_id),
+            )
         conn.commit()
