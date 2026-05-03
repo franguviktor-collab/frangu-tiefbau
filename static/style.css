@@ -851,6 +851,11 @@ a.header-contact:hover {
   border-color: #10b981;
 }
 
+.admin-card select {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
 .admin-card__row1 {
   display: flex;
   flex-wrap: nowrap;
