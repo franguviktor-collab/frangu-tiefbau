@@ -962,7 +962,16 @@ a.header-contact:hover {
   margin: 0;
 }
 
-.admin-card__row3 .admin-card__delete-form {
+.admin-card__row3 .admin-card__row3-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.admin-card__row3 .admin-card__row3-actions .admin-card__delete-form {
   flex: 0 0 auto;
   margin: 0;
   display: flex;
@@ -1041,5 +1050,173 @@ a.header-contact:hover {
 
 .admin-body .card.card--flush .muted.padded {
   padding: 1.25rem;
+  margin: 0;
+}
+
+/* ——— Slot booking (form + admin modal) ——— */
+
+.slot-booking {
+  margin: 1rem 0;
+}
+
+.slot-booking__heading {
+  margin: 0 0 0.5rem;
+  display: block;
+}
+
+.slot-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.slot-day-btn {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--green-dark);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.slot-day-btn:hover {
+  border-color: var(--green-light);
+}
+
+.slot-day-btn--active {
+  border-color: var(--accent-datetime);
+  background: var(--accent-datetime-bg);
+  color: var(--accent-datetime);
+}
+
+.slot-time-block {
+  margin-top: 1rem;
+}
+
+.slot-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+}
+
+.slot-time-btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 4.35rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  cursor: pointer;
+  border-width: 1px;
+  border-style: solid;
+  transition: filter 0.15s ease, border-color 0.15s;
+}
+
+.slot-time-btn--free {
+  background: rgba(46, 230, 168, 0.15);
+  border-color: rgba(46, 230, 168, 0.55);
+  color: var(--accent-datetime);
+}
+
+.slot-time-btn--free:hover {
+  filter: brightness(1.08);
+}
+
+.slot-time-btn--active {
+  box-shadow: 0 0 0 2px rgba(46, 230, 168, 0.35);
+  border-color: var(--accent-datetime);
+}
+
+.slot-time-btn--taken {
+  background: rgba(120, 120, 130, 0.12);
+  border-color: rgba(140, 140, 140, 0.25);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.slot-times-hint {
+  margin: 0.4rem 0 0;
+}
+
+.admin-card__row3-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: stretch;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.btn--schedule {
+  font-size: 0.76rem;
+  padding: 0.35rem 0.55rem;
+  min-height: 2.3rem;
+  white-space: nowrap;
+  border-radius: 6px;
+}
+
+.table .btn--schedule {
+  font-size: 0.8125rem;
+}
+
+.reschedule-modal[hidden] {
+  display: none !important;
+}
+
+.reschedule-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-bottom, 1rem))
+    max(0.75rem, env(safe-area-inset-right, 0px))
+    max(1rem, env(safe-area-inset-bottom, 1rem))
+    max(0.75rem, env(safe-area-inset-left, 0px));
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+@media (min-width: 560px) {
+  .reschedule-modal {
+    align-items: center;
+  }
+}
+
+.reschedule-modal__panel {
+  width: min(440px, 100%);
+  max-height: min(90vh, 640px);
+  overflow-y: auto;
+  background: linear-gradient(180deg, #152822 0%, var(--surface) 40%, var(--surface-2));
+  border: 1px solid var(--green-dark);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.reschedule-modal__title {
+  margin: 0 0 0.85rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.reschedule-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.reschedule-modal .slot-booking {
   margin: 0;
 }

@@ -60,12 +60,16 @@
               <span class="admin-card__dot" aria-hidden="true">·</span>
               <span class="admin-card__nameinline">{{ row.first_name }} {{ row.last_name }}</span>
               <span class="admin-card__dot" aria-hidden="true">·</span>
-              <span class="pill-datetime pill-datetime--compact">{{ row.preferred_date }} · {{ row.preferred_time }}</span>
+              <span class="pill-datetime pill-datetime--compact js-appt-slot-pill" data-appt-id="{{ row.id }}">{{ row.preferred_date }} · {{ row.preferred_time }}</span>
             </div>
             <div class="admin-card__row2">
               <span class="admin-card__addr">{{ row.street }}, {{ row.plz }} {{ row.city }}</span>
               <span class="admin-card__dot" aria-hidden="true">·</span>
               <a class="admin-card__tel" href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a>
+              {% if row.email %}
+              <span class="admin-card__dot" aria-hidden="true">·</span>
+              <a class="admin-card__email muted" href="mailto:{{ row.email }}">{{ row.email }}</a>
+              {% endif %}
             </div>
             <div class="admin-card__row3">
               <div class="admin-card__status-wrap">
@@ -76,9 +80,15 @@
                   <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
                 </select>
               </div>
-              <form class="admin-card__delete-form js-admin-delete-form" method="post" action="/admin/delete/{{ row.id }}" data-appt-id="{{ row.id }}">
-                <button class="btn btn--delete-card btn--delete-compact" type="submit" data-i18n="delete">{{ at.delete }}</button>
-              </form>
+              <div class="admin-card__row3-actions">
+                <button type="button" class="btn btn--ghost btn--schedule js-admin-open-reschedule" data-i18n="reschedule"
+                  data-appt-id="{{ row.id }}"
+                  data-current-date="{{ row.preferred_date }}"
+                  data-current-time="{{ row.preferred_time }}">{{ at.reschedule }}</button>
+                <form class="admin-card__delete-form js-admin-delete-form" method="post" action="/admin/delete/{{ row.id }}" data-appt-id="{{ row.id }}">
+                  <button class="btn btn--delete-card btn--delete-compact" type="submit" data-i18n="delete">{{ at.delete }}</button>
+                </form>
+              </div>
             </div>
           </article>
           {% endfor %}
@@ -90,9 +100,11 @@
                 <th data-i18n="table_name">{{ at.table_name }}</th>
                 <th data-i18n="table_address">{{ at.table_address }}</th>
                 <th data-i18n="table_phone">{{ at.table_phone }}</th>
+                <th data-i18n="table_email">{{ at.table_email }}</th>
                 <th data-i18n="table_datetime">{{ at.table_datetime }}</th>
                 <th data-i18n="table_created">{{ at.table_created }}</th>
                 <th data-i18n="table_status">{{ at.table_status }}</th>
+                <th></th>
                 <th></th>
               </tr>
             </thead>
@@ -102,7 +114,8 @@
                 <td>{{ row.first_name }} {{ row.last_name }}</td>
                 <td>{{ row.street }}, {{ row.plz }} {{ row.city }}</td>
                 <td><a href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a></td>
-                <td class="cell-datetime"><span class="pill-datetime">{{ row.preferred_date }} · {{ row.preferred_time }}</span></td>
+                <td class="muted small">{% if row.email %}<a href="mailto:{{ row.email }}">{{ row.email }}</a>{% endif %}</td>
+                <td class="cell-datetime"><span class="pill-datetime js-appt-slot-pill" data-appt-id="{{ row.id }}">{{ row.preferred_date }} · {{ row.preferred_time }}</span></td>
                 <td class="muted small">{{ row.created_at }}</td>
                 <td>
                   <div class="inline-form inline-form--pseudo">
@@ -113,6 +126,12 @@
                       <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
                     </select>
                   </div>
+                </td>
+                <td>
+                  <button type="button" class="btn btn--ghost btn--sm btn--schedule js-admin-open-reschedule" data-i18n="reschedule"
+                    data-appt-id="{{ row.id }}"
+                    data-current-date="{{ row.preferred_date }}"
+                    data-current-time="{{ row.preferred_time }}">{{ at.reschedule }}</button>
                 </td>
                 <td>
                   <form class="inline-form js-admin-delete-form" method="post" action="/admin/delete/{{ row.id }}" data-appt-id="{{ row.id }}">
@@ -129,6 +148,27 @@
     </div>
   </main>
 
+  {% if logged_in %}
+  <div id="reschedule-modal" class="reschedule-modal" hidden role="dialog" aria-modal="true" aria-labelledby="reschedule-modal-title">
+    <div class="reschedule-modal__panel">
+      <h2 id="reschedule-modal-title" class="reschedule-modal__title" data-i18n="reschedule_title">{{ at.reschedule_title }}</h2>
+      <p id="reschedule-modal-err" class="banner banner--error padded" hidden role="alert"></p>
+      <div class="slot-booking" id="modal-slot-booking-root">
+        <p class="field__label slot-booking__heading" data-i18n="pick_date">{{ at.pick_date }}</p>
+        <div class="slot-days" id="modal-slot-days" role="group"></div>
+        <p class="field__label slot-booking__heading" style="margin-top:0.75rem" data-i18n="pick_time">{{ at.pick_time }}</p>
+        <div class="slot-times" id="modal-slot-times" role="group"></div>
+        <p class="muted small slot-times-hint" id="modal-slot-loading" hidden data-i18n="slot_loading">{{ at.slot_loading }}</p>
+      </div>
+      <div class="reschedule-modal__actions">
+        <button type="button" class="btn btn--ghost" id="reschedule-cancel" data-i18n="reschedule_cancel">{{ at.reschedule_cancel }}</button>
+        <button type="button" class="btn" id="reschedule-save" disabled data-i18n="reschedule_confirm">{{ at.reschedule_confirm }}</button>
+      </div>
+    </div>
+  </div>
+  <script id="bookable-slot-calendar-data" type="application/json">{{ bookable_slot_calendar_json | safe }}</script>
+  {% endif %}
+
   {% include "_site_footer.html" %}
   {% if logged_in and admin_i18n_json %}
   <script id="admin-i18n-data" type="application/json">{{ admin_i18n_json | safe }}</script>
@@ -137,6 +177,129 @@
     var dataEl = document.getElementById("admin-i18n-data");
     if (!dataEl) return;
     var DATA = JSON.parse(dataEl.textContent);
+
+    var BOOKABLE = [];
+    var bc = document.getElementById("bookable-slot-calendar-data");
+    if (bc && bc.textContent) {
+      try {
+        BOOKABLE = JSON.parse(bc.textContent);
+      } catch (_e2) {
+        BOOKABLE = [];
+      }
+      if (!Array.isArray(BOOKABLE)) BOOKABLE = [];
+    }
+
+    var rescheduleState = { apptId: null, dateIso: null, time: null };
+
+    function showModalErr(msg) {
+      var el = document.getElementById("reschedule-modal-err");
+      if (!el) return;
+      if (msg) {
+        el.textContent = msg;
+        el.hidden = false;
+      } else {
+        el.hidden = true;
+      }
+    }
+
+    function renderModalDays(selectedIso) {
+      var wrap = document.getElementById("modal-slot-days");
+      if (!wrap) return;
+      wrap.innerHTML = "";
+      rescheduleState.dateIso = selectedIso;
+      BOOKABLE.forEach(function (d) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "slot-day-btn";
+        btn.setAttribute("data-date", d.iso);
+        btn.textContent = d.label || d.iso;
+        if (d.iso === selectedIso) btn.classList.add("slot-day-btn--active");
+        wrap.appendChild(btn);
+      });
+    }
+
+    function renderModalSlots(slots, selectedTime) {
+      var wrap = document.getElementById("modal-slot-times");
+      var sav = document.getElementById("reschedule-save");
+      if (!wrap) return;
+      wrap.innerHTML = "";
+      slots.forEach(function (s) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "slot-time-btn";
+        btn.textContent = s.time;
+        btn.setAttribute("data-time", s.time);
+        if (s.status === "taken") {
+          btn.classList.add("slot-time-btn--taken");
+          btn.disabled = true;
+        } else {
+          btn.classList.add("slot-time-btn--free");
+          if (selectedTime && selectedTime === s.time) {
+            btn.classList.add("slot-time-btn--active");
+          }
+        }
+        wrap.appendChild(btn);
+      });
+      rescheduleState.time = selectedTime || null;
+      if (sav)
+        sav.disabled =
+          !(rescheduleState.time && rescheduleState.dateIso && rescheduleState.apptId);
+    }
+
+    function loadModalSlots(iso, apptExcludeId, preselectTime) {
+      var loadEl = document.getElementById("modal-slot-loading");
+      if (loadEl) loadEl.hidden = false;
+      var url =
+        "/api/slots?date=" +
+        encodeURIComponent(iso) +
+        "&exclude_appt_id=" +
+        encodeURIComponent(String(apptExcludeId));
+      fetch(url)
+        .then(function (r) {
+          if (!r.ok) throw new Error("slots");
+          return r.json();
+        })
+        .then(function (data) {
+          if (loadEl) loadEl.hidden = true;
+          var slots = data.slots || [];
+          var sel = preselectTime;
+          var stillFree =
+            sel &&
+            slots.some(function (x) {
+              return x.time === sel && x.status === "free";
+            });
+          renderModalSlots(slots, stillFree ? sel : null);
+        })
+        .catch(function () {
+          if (loadEl) loadEl.hidden = true;
+        });
+    }
+
+    function openRescheduleModal(apptId, curDateIso, curTime) {
+      var modal = document.getElementById("reschedule-modal");
+      if (!modal || !BOOKABLE.length) return;
+      rescheduleState.apptId = String(apptId);
+      showModalErr("");
+      var def = BOOKABLE.some(function (d) {
+        return d.iso === curDateIso;
+      })
+        ? curDateIso
+        : BOOKABLE[0].iso;
+      renderModalDays(def);
+      loadModalSlots(def, apptId, curTime || null);
+      modal.hidden = false;
+      document.documentElement.style.overflow = "hidden";
+    }
+
+    function closeRescheduleModal() {
+      var modal = document.getElementById("reschedule-modal");
+      if (modal) modal.hidden = true;
+      document.documentElement.style.overflow = "";
+      rescheduleState.apptId = null;
+      rescheduleState.dateIso = null;
+      rescheduleState.time = null;
+      showModalErr("");
+    }
 
     function currentAdminLang() {
       var s = document.getElementById("admin-lang");
@@ -189,7 +352,9 @@
       row1.appendChild(name);
       row1.appendChild(dotSpan());
       var pill = document.createElement("span");
-      pill.className = "pill-datetime pill-datetime--compact";
+      pill.className =
+        "pill-datetime pill-datetime--compact js-appt-slot-pill";
+      pill.setAttribute("data-appt-id", String(row.id));
       pill.textContent = row.preferred_date + " \u00b7 " + row.preferred_time;
       row1.appendChild(pill);
       article.appendChild(row1);
@@ -207,6 +372,16 @@
       tel.href = telHref(row.phone);
       tel.textContent = row.phone;
       row2.appendChild(tel);
+      var em =
+        typeof row.email === "string" && row.email.trim().length ? row.email.trim() : "";
+      if (em) {
+        row2.appendChild(dotSpan());
+        var ea = document.createElement("a");
+        ea.className = "admin-card__email muted";
+        ea.href = "mailto:" + em;
+        ea.textContent = em;
+        row2.appendChild(ea);
+      }
       article.appendChild(row2);
 
       var row3 = document.createElement("div");
@@ -235,6 +410,24 @@
       wrap.appendChild(sel);
       row3.appendChild(wrap);
 
+      var acts = document.createElement("div");
+      acts.className = "admin-card__row3-actions";
+      var rbtn = document.createElement("button");
+      rbtn.type = "button";
+      rbtn.className = "btn btn--ghost btn--schedule js-admin-open-reschedule";
+      rbtn.setAttribute("data-i18n", "reschedule");
+      rbtn.setAttribute("data-appt-id", String(row.id));
+      rbtn.setAttribute(
+        "data-current-date",
+        String(row.preferred_date || "")
+      );
+      rbtn.setAttribute(
+        "data-current-time",
+        String(row.preferred_time || "")
+      );
+      rbtn.textContent = t.reschedule;
+      acts.appendChild(rbtn);
+
       var dform = document.createElement("form");
       dform.className = "admin-card__delete-form js-admin-delete-form";
       dform.method = "post";
@@ -246,7 +439,9 @@
       dbtn.setAttribute("data-i18n", "delete");
       dbtn.textContent = t.delete;
       dform.appendChild(dbtn);
-      row3.appendChild(dform);
+      acts.appendChild(dform);
+
+      row3.appendChild(acts);
       article.appendChild(row3);
 
       return article;
@@ -274,11 +469,25 @@
       td3.appendChild(a);
       tr.appendChild(td3);
 
+      var tdEmail = document.createElement("td");
+      tdEmail.className = "muted small";
+      var emRaw =
+        typeof row.email === "string" ? row.email.trim() : "";
+      if (emRaw) {
+        var ma = document.createElement("a");
+        ma.href = "mailto:" + emRaw;
+        ma.textContent = emRaw;
+        tdEmail.appendChild(ma);
+      }
+      tr.appendChild(tdEmail);
+
       var td4 = document.createElement("td");
       td4.className = "cell-datetime";
       var span = document.createElement("span");
-      span.className = "pill-datetime";
-      span.textContent = row.preferred_date + " \u00b7 " + row.preferred_time;
+      span.className = "pill-datetime js-appt-slot-pill";
+      span.setAttribute("data-appt-id", String(row.id));
+      span.textContent =
+        row.preferred_date + " \u00b7 " + row.preferred_time;
       td4.appendChild(span);
       tr.appendChild(td4);
 
@@ -288,29 +497,48 @@
       tr.appendChild(td5);
 
       var td6 = document.createElement("td");
-      var wrap = document.createElement("div");
-      wrap.className = "inline-form inline-form--pseudo";
+      var wf = document.createElement("div");
+      wf.className = "inline-form inline-form--pseudo";
       var lbl = document.createElement("label");
       lbl.className = "sr-only";
       lbl.setAttribute("for", "status-d-" + row.id);
       lbl.textContent = t.table_status;
-      var sel = document.createElement("select");
-      sel.className = "field__input field__input--sm js-admin-status-select";
-      sel.id = "status-d-" + row.id;
-      sel.name = "status";
-      sel.setAttribute("data-appt-id", String(row.id));
-      sel.setAttribute("data-committed-status", row.status);
+      var s2 = document.createElement("select");
+      s2.className = "field__input field__input--sm js-admin-status-select";
+      s2.id = "status-d-" + row.id;
+      s2.name = "status";
+      s2.setAttribute("data-appt-id", String(row.id));
+      s2.setAttribute("data-committed-status", row.status);
       ["new", "confirmed", "completed"].forEach(function (val) {
         var opt = document.createElement("option");
         opt.value = val;
         opt.textContent = st[val][lang];
         if (val === row.status) opt.selected = true;
-        sel.appendChild(opt);
+        s2.appendChild(opt);
       });
-      wrap.appendChild(lbl);
-      wrap.appendChild(sel);
-      td6.appendChild(wrap);
+      wf.appendChild(lbl);
+      wf.appendChild(s2);
+      td6.appendChild(wf);
       tr.appendChild(td6);
+
+      var tdRb = document.createElement("td");
+      var rb = document.createElement("button");
+      rb.type = "button";
+      rb.className =
+        "btn btn--ghost btn--sm btn--schedule js-admin-open-reschedule";
+      rb.setAttribute("data-i18n", "reschedule");
+      rb.setAttribute("data-appt-id", String(row.id));
+      rb.setAttribute(
+        "data-current-date",
+        String(row.preferred_date || "")
+      );
+      rb.setAttribute(
+        "data-current-time",
+        String(row.preferred_time || "")
+      );
+      rb.textContent = t.reschedule;
+      tdRb.appendChild(rb);
+      tr.appendChild(tdRb);
 
       var td7 = document.createElement("td");
       var form = document.createElement("form");
@@ -480,6 +708,63 @@
         .catch(function () {});
     });
 
+    document.addEventListener("click", function (e) {
+      var tgt = e.target;
+
+      var mroot = document.getElementById("reschedule-modal");
+      if (mroot && !mroot.hidden && tgt === mroot) {
+        closeRescheduleModal();
+        return;
+      }
+
+      if (
+        tgt.matches &&
+        tgt.matches(".slot-day-btn") &&
+        tgt.closest &&
+        tgt.closest("#modal-slot-days")
+      ) {
+        var iso = tgt.getAttribute("data-date");
+        renderModalDays(iso);
+        loadModalSlots(iso, rescheduleState.apptId, null);
+        return;
+      }
+
+      if (
+        tgt.matches &&
+        tgt.matches(".slot-time-btn.slot-time-btn--free") &&
+        tgt.closest &&
+        tgt.closest("#modal-slot-times")
+      ) {
+        var tm = tgt.getAttribute("data-time");
+        rescheduleState.time = tm;
+        document
+          .querySelectorAll("#modal-slot-times .slot-time-btn--free")
+          .forEach(function (b) {
+            b.classList.toggle(
+              "slot-time-btn--active",
+              b.getAttribute("data-time") === tm
+            );
+          });
+        var sav = document.getElementById("reschedule-save");
+        if (sav) sav.disabled = false;
+        return;
+      }
+
+      if (tgt.matches && tgt.matches(".js-admin-open-reschedule")) {
+        openRescheduleModal(
+          tgt.getAttribute("data-appt-id"),
+          tgt.getAttribute("data-current-date"),
+          tgt.getAttribute("data-current-time")
+        );
+      }
+    });
+
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key !== "Escape") return;
+      var mr = document.getElementById("reschedule-modal");
+      if (mr && !mr.hidden) closeRescheduleModal();
+    });
+
     document.addEventListener("DOMContentLoaded", function () {
       var rb = document.getElementById("admin-refresh-btn");
       if (rb) {
@@ -500,6 +785,77 @@
       var sel = document.getElementById("admin-lang");
       if (sel) sel.dataset.prevLangSelect = serverLang;
       bindAdminLangSelect();
+
+      var cancelBt = document.getElementById("reschedule-cancel");
+      if (cancelBt) cancelBt.addEventListener("click", closeRescheduleModal);
+
+      var saveBt = document.getElementById("reschedule-save");
+      if (saveBt) {
+        saveBt.addEventListener("click", function () {
+          var id = rescheduleState.apptId;
+          var dIso = rescheduleState.dateIso;
+          var tmStr = rescheduleState.time;
+          if (!id || !dIso || !tmStr) return;
+          showModalErr("");
+          fetch("/admin/reschedule/" + id, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+            body: new URLSearchParams({
+              new_date: dIso,
+              new_time: tmStr,
+            }),
+          })
+            .then(function (res) {
+              if (res.status === 409) {
+                var lg = currentAdminLang();
+                var msg =
+                  (DATA.ui[lg] && DATA.ui[lg].slot_conflict_admin) ||
+                  "";
+                showModalErr(msg);
+                return Promise.resolve(null);
+              }
+              if (!res.ok) throw new Error("rs");
+              return res.json();
+            })
+            .then(function (body) {
+              if (!body) return;
+              var txt =
+                body.preferred_date + " \u00b7 " + body.preferred_time;
+              document
+                .querySelectorAll(
+                  '.js-appt-slot-pill[data-appt-id="' +
+                    String(id) +
+                    '"]'
+                )
+                .forEach(function (el) {
+                  el.textContent = txt;
+                });
+              document
+                .querySelectorAll(
+                  '.js-admin-open-reschedule[data-appt-id="' +
+                    String(id) +
+                    '"]'
+                )
+                .forEach(function (b) {
+                  b.setAttribute(
+                    "data-current-date",
+                    body.preferred_date
+                  );
+                  b.setAttribute(
+                    "data-current-time",
+                    body.preferred_time
+                  );
+                });
+              closeRescheduleModal();
+            })
+            .catch(function () {});
+        });
+      }
+
       var stored = null;
       try {
         stored = localStorage.getItem("admin_lang");

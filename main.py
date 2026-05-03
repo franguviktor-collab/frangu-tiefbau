@@ -2,6 +2,11 @@
 
 import json
 import os
+import re
+import smtplib
+import ssl
+from datetime import datetime
+from email.message import EmailMessage
 from typing import Annotated, Literal
 
 import dotenv
@@ -31,6 +36,75 @@ def _public_ctx() -> dict:
     }
 
 
+def _bookable_calendar_rows(lang: Lang) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for d in db.bookable_dates_starting(db.booking_today()):
+        wd = WEEKDAY_SHORT[lang][d.weekday()]
+        rows.append(
+            {
+                "iso": d.isoformat(),
+                "label": f"{wd} · {d.strftime('%d.%m.')}",
+            }
+        )
+    return rows
+
+
+def _valid_email_optional(raw: str) -> tuple[bool, str]:
+    s = (raw or "").strip()
+    if not s:
+        return True, ""
+    if not EMAIL_LOOSE_RE.match(s):
+        return False, ""
+    return True, s
+
+
+def _format_date_de(iso_d: str) -> str:
+    dt = datetime.strptime(iso_d.strip(), "%Y-%m-%d")
+    return dt.strftime("%d.%m.%Y")
+
+
+def _send_reschedule_email_de(
+    recipient: str,
+    first_name: str,
+    new_date_iso: str,
+    new_time: str,
+) -> None:
+    pwd = os.getenv("GMAIL_APP_PASSWORD", "").strip()
+    if not pwd:
+        return
+    sender = os.getenv("GMAIL_SENDER", "frangu.tiefbau@gmail.com").strip()
+    if not sender:
+        sender = "frangu.tiefbau@gmail.com"
+
+    name = (first_name or "").strip() or "Kundin/Kunde"
+    date_de = _format_date_de(new_date_iso)
+
+    body = (
+        f"Guten Tag {name},\n\n"
+        "wir teilen Ihnen mit, dass Ihr Termin für den Glasfaser-Hausanschluss "
+        "bei Frangu Tiefbau verschoben wurde.\n\n"
+        f"Neuer Termin: {date_de} um {new_time} Uhr\n\n"
+        "Bei Rückfragen erreichen Sie uns unter:\n"
+        f"Telefon: {CONTACT_PHONE}\n"
+        f"E-Mail: {CONTACT_EMAIL}\n"
+        f"Adresse: {FOOTER_ADDRESS}\n\n"
+        "Mit freundlichen Grüßen\n"
+        "Frangu Tiefbau\n"
+    )
+
+    msg = EmailMessage()
+    msg["Subject"] = "Ihr Glasfaser-Termin wurde verschoben"
+    msg["From"] = sender
+    msg["To"] = recipient
+    msg.set_content(body)
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+        smtp.starttls(context=context)
+        smtp.login(sender, pwd)
+        smtp.send_message(msg)
+
+
 Lang = Literal["de", "ru", "en"]
 
 I18N: dict[Lang, dict[str, str]] = {
@@ -44,8 +118,13 @@ I18N: dict[Lang, dict[str, str]] = {
         "plz": "PLZ",
         "city": "Ort",
         "phone": "Telefon",
+        "email": "E-Mail",
+        "pick_date": "Datum wählen",
+        "pick_time": "Uhrzeit wählen",
+        "slot_loading": "Laden…",
         "preferred_date": "Wunschdatum",
         "preferred_time": "Wunschuhrzeit",
+        "slot_error": "Dieser Termin ist nicht mehr frei. Bitte andere Zeit wählen.",
         "submit": "Termin anfragen",
         "lang_label": "Sprache",
         "contact": "Kontakt",
@@ -64,8 +143,13 @@ I18N: dict[Lang, dict[str, str]] = {
         "plz": "Индекс (PLZ)",
         "city": "Город",
         "phone": "Телефон",
+        "email": "E-mail",
+        "pick_date": "Выберите дату",
+        "pick_time": "Выберите время",
+        "slot_loading": "Загрузка…",
         "preferred_date": "Желаемая дата",
         "preferred_time": "Желаемое время",
+        "slot_error": "Это время уже занято. Выберите другое.",
         "submit": "Отправить заявку",
         "lang_label": "Язык",
         "contact": "Контакт",
@@ -84,8 +168,13 @@ I18N: dict[Lang, dict[str, str]] = {
         "plz": "Postal code (PLZ)",
         "city": "City",
         "phone": "Phone",
+        "email": "Email",
+        "pick_date": "Pick a date",
+        "pick_time": "Pick a time",
+        "slot_loading": "Loading…",
         "preferred_date": "Preferred date",
         "preferred_time": "Preferred time",
+        "slot_error": "This slot is no longer available. Please choose another time.",
         "submit": "Request appointment",
         "lang_label": "Language",
         "contact": "Contact",
@@ -114,10 +203,19 @@ ADMIN_UI = {
         "table_name": "Name",
         "table_address": "Adresse",
         "table_phone": "Telefon",
+        "table_email": "E-Mail",
         "table_datetime": "Wunschtermin",
         "table_status": "Status",
         "table_created": "Eingegangen",
         "delete": "Löschen",
+        "reschedule": "Verschieben",
+        "reschedule_title": "Termin verschieben",
+        "reschedule_confirm": "Speichern",
+        "reschedule_cancel": "Abbrechen",
+        "pick_date": "Datum wählen",
+        "pick_time": "Uhrzeit wählen",
+        "slot_loading": "Laden…",
+        "slot_conflict_admin": "Dieser Zeitslot ist schon vergeben.",
         "empty": "Keine Terminanfragen.",
         "lang_admin": "Admin-Sprache",
     },
@@ -132,10 +230,19 @@ ADMIN_UI = {
         "table_name": "Имя",
         "table_address": "Адрес",
         "table_phone": "Телефон",
+        "table_email": "E-mail",
         "table_datetime": "Желаемые дата/время",
         "table_status": "Статус",
         "table_created": "Создано",
         "delete": "Удалить",
+        "reschedule": "Перенести",
+        "reschedule_title": "Перенос записи",
+        "reschedule_confirm": "Сохранить",
+        "reschedule_cancel": "Отмена",
+        "pick_date": "Выберите дату",
+        "pick_time": "Выберите время",
+        "slot_loading": "Загрузка…",
+        "slot_conflict_admin": "Это время уже занято.",
         "empty": "Заявок пока нет.",
         "lang_admin": "Язык админки",
     },
@@ -150,14 +257,31 @@ ADMIN_UI = {
         "table_name": "Name",
         "table_address": "Address",
         "table_phone": "Phone",
+        "table_email": "Email",
         "table_datetime": "Preferred slot",
         "table_status": "Status",
         "table_created": "Received",
         "delete": "Delete",
+        "reschedule": "Reschedule",
+        "reschedule_title": "Reschedule appointment",
+        "reschedule_confirm": "Save",
+        "reschedule_cancel": "Cancel",
+        "pick_date": "Pick a date",
+        "pick_time": "Pick a time",
+        "slot_loading": "Loading…",
+        "slot_conflict_admin": "That time slot is already taken.",
         "empty": "No appointments yet.",
         "lang_admin": "Admin language",
     },
 }
+
+WEEKDAY_SHORT: dict[Lang, list[str]] = {
+    "de": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+    "ru": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+}
+
+EMAIL_LOOSE_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 env_j = Environment(
@@ -217,12 +341,28 @@ async def form_page(request: Request, lang: str | None = None):
         t=t,
         lang=l,
         contact_name="Evgheni Frangu",
+        bookable_dates=_bookable_calendar_rows(l),
         **_public_ctx(),
     )
     resp = HTMLResponse(content=html)
     if lang in ("de", "ru", "en"):
         resp.set_cookie("lang", lang, max_age=60 * 60 * 24 * 365, httponly=False)
     return resp
+
+
+@app.get("/api/slots")
+async def api_slots(
+    date: str,
+    exclude_appt_id: int | None = None,
+):
+    if not db.parse_iso_date_yyyy_mm_dd(date):
+        raise HTTPException(status_code=400, detail="invalid date")
+    if not db.is_bookable_now(date):
+        raise HTTPException(status_code=400, detail="date not bookable")
+    excl = exclude_appt_id if exclude_appt_id and exclude_appt_id > 0 else None
+    return JSONResponse(
+        {"date": date, "slots": db.slots_for_date(date, excl)}
+    )
 
 
 @app.post("/submit", response_class=HTMLResponse)
@@ -237,43 +377,79 @@ async def submit(
     preferred_date: Annotated[str, Form()],
     preferred_time: Annotated[str, Form()],
     lang: Annotated[str, Form()] = "de",
+    email: Annotated[str, Form()] = "",
 ):
     l = _normalize_lang(lang)
-    if not all(
-        [
-            first_name.strip(),
-            last_name.strip(),
-            street.strip(),
-            plz.strip(),
-            city.strip(),
-            phone.strip(),
-            preferred_date.strip(),
-            preferred_time.strip(),
-        ]
-    ):
-        t = I18N[l]
-        html = env_j.get_template("form.html").render(
+    t = I18N[l]
+    email_ok, email_clean = _valid_email_optional(email)
+    norm_time = db.normalize_slot_time(preferred_time)
+
+    def _render_form(
+        *,
+        error: bool = False,
+        slot_error: bool = False,
+        form_data_override: dict | None = None,
+        status_http: int = status.HTTP_400_BAD_REQUEST,
+    ) -> HTMLResponse:
+        base = form_data_override or {
+            "first_name": first_name,
+            "last_name": last_name,
+            "street": street,
+            "plz": plz,
+            "city": city,
+            "phone": phone,
+            "email": email_clean if email_ok else email,
+            "preferred_date": preferred_date,
+            "preferred_time": preferred_time,
+        }
+        html_out = env_j.get_template("form.html").render(
             request=request,
             t=t,
             lang=l,
             contact_name="Evgheni Frangu",
+            bookable_dates=_bookable_calendar_rows(l),
+            error=error,
+            slot_error=slot_error,
+            form_data=base,
             **_public_ctx(),
-            error=True,
-            form_data={
-                "first_name": first_name,
-                "last_name": last_name,
-                "street": street,
-                "plz": plz,
-                "city": city,
-                "phone": phone,
-                "preferred_date": preferred_date,
-                "preferred_time": preferred_time,
-            },
         )
-        return HTMLResponse(content=html, status_code=status.HTTP_400_BAD_REQUEST)
+        return HTMLResponse(content=html_out, status_code=status_http)
+
+    base_fields_ok = bool(
+        first_name.strip()
+        and last_name.strip()
+        and street.strip()
+        and plz.strip()
+        and city.strip()
+        and phone.strip()
+        and preferred_date.strip()
+        and preferred_time.strip()
+    )
+    if not base_fields_ok:
+        return _render_form(error=True)
+
+    if not email_ok:
+        return _render_form(error=True)
+
+    if not norm_time:
+        return _render_form(slot_error=False, error=True)
+
+    if not db.is_bookable_now(preferred_date.strip()):
+        return _render_form(slot_error=True)
+
+    if db.is_slot_blocked(preferred_date.strip(), norm_time):
+        return _render_form(slot_error=True)
 
     db.create_appointment(
-        first_name, last_name, street, plz, city, phone, preferred_date, preferred_time
+        first_name,
+        last_name,
+        street,
+        plz,
+        city,
+        phone,
+        email_clean,
+        preferred_date.strip(),
+        norm_time,
     )
     return RedirectResponse(
         url=f"/success?lang={l}", status_code=status.HTTP_303_SEE_OTHER
@@ -313,6 +489,7 @@ async def admin_login_post(
             at=at,
             status_labels=ADMIN_STATUS_LABELS,
             admin_i18n_json="",
+            bookable_slot_calendar_json="[]",
             **_public_ctx(),
         )
         resp = HTMLResponse(content=html, status_code=status.HTTP_401_UNAUTHORIZED)
@@ -347,6 +524,7 @@ async def admin_page(request: Request, lang: str | None = None):
             at=at,
             status_labels=ADMIN_STATUS_LABELS,
             admin_i18n_json="",
+            bookable_slot_calendar_json="[]",
             **_public_ctx(),
         )
         resp = HTMLResponse(content=html)
@@ -361,6 +539,9 @@ async def admin_page(request: Request, lang: str | None = None):
         at = ADMIN_UI[al]
 
     rows = db.list_appointments()
+    bookable_slot_calendar = json.dumps(
+        _bookable_calendar_rows(al), ensure_ascii=False
+    )
     resp = HTMLResponse(
         content=env_j.get_template("admin.html").render(
             request=request,
@@ -371,6 +552,7 @@ async def admin_page(request: Request, lang: str | None = None):
             at=at,
             status_labels=ADMIN_STATUS_LABELS,
             admin_i18n_json=_admin_i18n_json(),
+            bookable_slot_calendar_json=bookable_slot_calendar,
             **_public_ctx(),
         )
     )
@@ -422,4 +604,50 @@ async def admin_status(
     db.set_appointment_status(appt_id, status_value)
     if _wants_json_status_update(request):
         return JSONResponse({"ok": True, "status": status_value})
+    return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post("/admin/reschedule/{appt_id}")
+async def admin_reschedule(
+    request: Request,
+    appt_id: int,
+    new_date: Annotated[str, Form()],
+    new_time: Annotated[str, Form()],
+):
+    if not _admin_ok(request):
+        raise HTTPException(status_code=401)
+
+    apt = db.get_appointment(appt_id)
+    if not apt:
+        raise HTTPException(status_code=404, detail="not found")
+
+    nd = new_date.strip()
+    nt = db.normalize_slot_time(new_time)
+    if not nt:
+        raise HTTPException(status_code=400, detail="invalid time")
+    if not db.is_bookable_now(nd):
+        raise HTTPException(status_code=400, detail="invalid date")
+    if db.is_slot_blocked(nd, nt, exclude_appt_id=appt_id):
+        raise HTTPException(status_code=409, detail="slot taken")
+
+    try:
+        db.reschedule_appointment(appt_id, nd, nt)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="not found") from None
+
+    to_addr = (apt.get("email") or "").strip()
+    if to_addr:
+        try:
+            _send_reschedule_email_de(to_addr, apt.get("first_name") or "", nd, nt)
+        except Exception:
+            pass
+
+    if _wants_json(request):
+        return JSONResponse(
+            {
+                "ok": True,
+                "preferred_date": nd,
+                "preferred_time": nt,
+            }
+        )
     return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)

@@ -32,8 +32,11 @@
         {% if error %}
         <p class="banner banner--error" role="alert">{{ t.fill_error }}</p>
         {% endif %}
+        {% if slot_error %}
+        <p class="banner banner--error" role="alert">{{ t.slot_error }}</p>
+        {% endif %}
 
-        <form class="form" method="post" action="/submit" novalidate>
+        <form class="form" method="post" action="/submit" id="appt-form" novalidate>
           <input type="hidden" name="lang" value="{{ lang }}">
 
           <div class="grid">
@@ -75,15 +78,30 @@
           </label>
 
           <label class="field">
-            <span class="field__label">{{ t.preferred_date }}</span>
-            <input class="field__input" type="date" name="preferred_date" required
+            <span class="field__label">{{ t.email }}</span>
+            <input class="field__input" type="email" name="email" autocomplete="email" inputmode="email"
+              placeholder="name@beispiel.de"
+              value="{{ form_data.email if form_data is defined else '' }}">
+          </label>
+
+          <div class="slot-booking" data-slot-booking>
+            <p class="field__label slot-booking__heading">{{ t.pick_date }}</p>
+            <div class="slot-days" role="group" aria-label="{{ t.pick_date }}">
+              {% for bd in bookable_dates %}
+              <button type="button" class="slot-day-btn" data-date="{{ bd.iso }}">{{ bd.label }}</button>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="preferred_date" id="slot-hidden-date" required
               value="{{ form_data.preferred_date if form_data is defined else '' }}">
-          </label>
-          <label class="field">
-            <span class="field__label">{{ t.preferred_time }}</span>
-            <input class="field__input" type="time" name="preferred_time" required
+            <input type="hidden" name="preferred_time" id="slot-hidden-time" required
               value="{{ form_data.preferred_time if form_data is defined else '' }}">
-          </label>
+
+            <div class="slot-time-block" id="slot-time-block" {% if not (form_data is defined and form_data.preferred_date) %}hidden{% endif %}>
+              <p class="field__label slot-booking__heading">{{ t.pick_time }}</p>
+              <div class="slot-times" id="slot-times" role="group" aria-label="{{ t.pick_time }}"></div>
+              <p class="muted small slot-times-hint" id="slot-times-loading" hidden>{{ t.slot_loading }}</p>
+            </div>
+          </div>
 
           <button class="btn btn--cta" type="submit">{{ t.submit }}</button>
         </form>
@@ -92,5 +110,89 @@
   </main>
 
   {% include "_site_footer.html" %}
+  <script>
+  (function () {
+    var root = document.querySelector("[data-slot-booking]");
+    if (!root) return;
+    var hiddenDate = document.getElementById("slot-hidden-date");
+    var hiddenTime = document.getElementById("slot-hidden-time");
+    var timeBlock = document.getElementById("slot-time-block");
+    var timesEl = document.getElementById("slot-times");
+    var loadingEl = document.getElementById("slot-times-loading");
+
+    function setSelectedDay(iso) {
+      root.querySelectorAll(".slot-day-btn").forEach(function (b) {
+        b.classList.toggle("slot-day-btn--active", b.getAttribute("data-date") === iso);
+      });
+    }
+
+    function renderSlots(slots, selectedTime) {
+      timesEl.innerHTML = "";
+      slots.forEach(function (s) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "slot-time-btn";
+        btn.textContent = s.time;
+        btn.setAttribute("data-time", s.time);
+        if (s.status === "taken") {
+          btn.classList.add("slot-time-btn--taken");
+          btn.disabled = true;
+          btn.setAttribute("aria-disabled", "true");
+        } else {
+          btn.classList.add("slot-time-btn--free");
+          if (selectedTime && selectedTime === s.time) {
+            btn.classList.add("slot-time-btn--active");
+          }
+        }
+        timesEl.appendChild(btn);
+      });
+    }
+
+    function loadSlots(iso, keepTime) {
+      if (!iso) return;
+      loadingEl.hidden = false;
+      fetch("/api/slots?date=" + encodeURIComponent(iso))
+        .then(function (r) {
+          if (!r.ok) throw new Error("slots");
+          return r.json();
+        })
+        .then(function (data) {
+          var keep = keepTime && hiddenTime.value ? hiddenTime.value : "";
+          renderSlots(data.slots || [], keep);
+          loadingEl.hidden = true;
+        })
+        .catch(function () {
+          loadingEl.hidden = true;
+          timesEl.innerHTML = "";
+        });
+    }
+
+    root.addEventListener("click", function (e) {
+      var t = e.target;
+      if (t.matches && t.matches(".slot-day-btn")) {
+        var iso = t.getAttribute("data-date");
+        hiddenDate.value = iso;
+        hiddenTime.value = "";
+        setSelectedDay(iso);
+        timeBlock.hidden = false;
+        loadSlots(iso, false);
+        return;
+      }
+      if (t.matches && t.matches(".slot-time-btn.slot-time-btn--free")) {
+        var tm = t.getAttribute("data-time");
+        hiddenTime.value = tm;
+        timesEl.querySelectorAll(".slot-time-btn--free").forEach(function (b) {
+          b.classList.toggle("slot-time-btn--active", b === t);
+        });
+      }
+    });
+
+    var initialDate = hiddenDate && hiddenDate.value;
+    if (initialDate) {
+      setSelectedDay(initialDate);
+      loadSlots(initialDate, true);
+    }
+  })();
+  </script>
 </body>
 </html>
