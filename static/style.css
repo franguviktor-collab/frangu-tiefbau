@@ -559,6 +559,14 @@ a.header-contact:hover {
   outline-offset: 1px;
 }
 
+.field__input[type="date"],
+.field__input[type="time"] {
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .field__input--sm {
   padding: 0.4rem 0.5rem;
   font-size: 0.85rem;
