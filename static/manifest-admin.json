@@ -1,0 +1,13 @@
+{
+  "name": "FT Admin",
+  "short_name": "FT Admin",
+  "description": "Frangu Tiefbau Admin",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#1a0a0a",
+  "theme_color": "#8B0000",
+  "icons": [
+    {"src": "/static/icon-admin-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/icon-admin-192.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
