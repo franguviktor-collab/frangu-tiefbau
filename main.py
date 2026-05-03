@@ -193,9 +193,13 @@ def _admin_i18n_json() -> str:
     return json.dumps({"ui": ADMIN_UI, "status": ADMIN_STATUS_LABELS}, ensure_ascii=False)
 
 
-def _wants_json_status_update(request: Request) -> bool:
+def _wants_json(request: Request) -> bool:
     accept = request.headers.get("accept") or ""
     return "application/json" in accept
+
+
+def _wants_json_status_update(request: Request) -> bool:
+    return _wants_json(request)
 
 
 COOKIE_ADMIN_LANG = {
@@ -374,11 +378,20 @@ async def admin_page(request: Request, lang: str | None = None):
     return resp
 
 
+@app.get("/admin/api/appointments")
+async def admin_api_appointments(request: Request):
+    if not _admin_ok(request):
+        raise HTTPException(status_code=401)
+    return JSONResponse({"appointments": db.list_appointments()})
+
+
 @app.post("/admin/delete/{appt_id}")
 async def admin_delete(request: Request, appt_id: int):
     if not _admin_ok(request):
         raise HTTPException(status_code=401)
     db.delete_appointment(appt_id)
+    if _wants_json(request):
+        return JSONResponse({"ok": True})
     return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
 
 

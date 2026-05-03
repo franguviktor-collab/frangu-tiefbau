@@ -23,7 +23,7 @@
             <option value="ru" {% if admin_lang == 'ru' %}selected{% endif %}>RU</option>
             <option value="en" {% if admin_lang == 'en' %}selected{% endif %}>EN</option>
           </select>
-          <button type="button" class="admin-refresh-btn" onclick="location.reload()" aria-label="{{ at.refresh }}" title="{{ at.refresh }}">↻</button>
+          <button type="button" class="admin-refresh-btn" id="admin-refresh-btn" aria-label="{{ at.refresh }}" title="{{ at.refresh }}">↻</button>
           <a class="btn btn--ghost btn--sm" href="/admin/logout" data-i18n="logout">{{ at.logout }}</a>
         </div>
         {% else %}
@@ -51,12 +51,10 @@
         </form>
         {% else %}
 
-        {% if not rows %}
-        <p class="muted padded" data-i18n="empty">{{ at.empty }}</p>
-        {% else %}
-        <div class="admin-cards" aria-label="Termine Liste">
+        <p id="admin-empty-hint" class="muted padded" data-i18n="empty" {% if rows %}hidden{% endif %}>{{ at.empty }}</p>
+        <div class="admin-cards" id="admin-cards-list" aria-label="Termine Liste" {% if not rows %}hidden{% endif %}>
           {% for row in rows %}
-          <article class="admin-card admin-card--compact admin-card--status-{{ row.status }}">
+          <article class="admin-card admin-card--compact admin-card--status-{{ row.status }}" data-appt-id="{{ row.id }}">
             <div class="admin-card__row1">
               <span class="admin-card__num">#{{ loop.index }}</span>
               <span class="admin-card__dot" aria-hidden="true">·</span>
@@ -78,14 +76,14 @@
                   <option value="completed" {% if row.status == 'completed' %}selected{% endif %}>{{ status_labels.completed[admin_lang] }}</option>
                 </select>
               </div>
-              <form class="admin-card__delete-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
+              <form class="admin-card__delete-form js-admin-delete-form" method="post" action="/admin/delete/{{ row.id }}" data-appt-id="{{ row.id }}">
                 <button class="btn btn--delete-card btn--delete-compact" type="submit" data-i18n="delete">{{ at.delete }}</button>
               </form>
             </div>
           </article>
           {% endfor %}
         </div>
-        <div class="table-wrap table-wrap--desktop">
+        <div class="table-wrap table-wrap--desktop" id="admin-table-wrap" {% if not rows %}hidden{% endif %}>
           <table class="table">
             <thead>
               <tr>
@@ -98,9 +96,9 @@
                 <th></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="admin-table-body">
               {% for row in rows %}
-              <tr>
+              <tr data-appt-id="{{ row.id }}">
                 <td>{{ row.first_name }} {{ row.last_name }}</td>
                 <td>{{ row.street }}, {{ row.plz }} {{ row.city }}</td>
                 <td><a href="tel:{{ row.phone | replace(' ', '') | replace('-', '') }}">{{ row.phone }}</a></td>
@@ -117,7 +115,7 @@
                   </div>
                 </td>
                 <td>
-                  <form class="inline-form" method="post" action="/admin/delete/{{ row.id }}" onsubmit="return confirm('OK?');">
+                  <form class="inline-form js-admin-delete-form" method="post" action="/admin/delete/{{ row.id }}" data-appt-id="{{ row.id }}">
                     <button class="btn btn--danger btn--sm" type="submit" data-i18n="delete">{{ at.delete }}</button>
                   </form>
                 </td>
@@ -126,7 +124,6 @@
             </tbody>
           </table>
         </div>
-        {% endif %}
         {% endif %}
       </div>
     </div>
@@ -140,6 +137,222 @@
     var dataEl = document.getElementById("admin-i18n-data");
     if (!dataEl) return;
     var DATA = JSON.parse(dataEl.textContent);
+
+    function currentAdminLang() {
+      var s = document.getElementById("admin-lang");
+      if (s && s.value) return s.value;
+      return document.documentElement.lang || "de";
+    }
+
+    function telHref(phone) {
+      return "tel:" + String(phone).replace(/\s/g, "").replace(/-/g, "");
+    }
+
+    function dotSpan() {
+      var dot = document.createElement("span");
+      dot.className = "admin-card__dot";
+      dot.setAttribute("aria-hidden", "true");
+      dot.textContent = "\u00b7";
+      return dot;
+    }
+
+    function updateAdminEmptyState() {
+      var list = document.getElementById("admin-cards-list");
+      var hint = document.getElementById("admin-empty-hint");
+      var tw = document.getElementById("admin-table-wrap");
+      if (!list || !hint) return;
+      var has = list.querySelector("article") !== null;
+      hint.hidden = has;
+      list.hidden = !has;
+      if (tw) tw.hidden = !has;
+    }
+
+    function buildAppointmentCard(row) {
+      var lang = currentAdminLang();
+      var t = DATA.ui[lang];
+      var st = DATA.status;
+      var article = document.createElement("article");
+      article.className =
+        "admin-card admin-card--compact admin-card--status-" + row.status;
+      article.setAttribute("data-appt-id", String(row.id));
+
+      var row1 = document.createElement("div");
+      row1.className = "admin-card__row1";
+      var num = document.createElement("span");
+      num.className = "admin-card__num";
+      num.textContent = "#" + String(row.id);
+      row1.appendChild(num);
+      row1.appendChild(dotSpan());
+      var name = document.createElement("span");
+      name.className = "admin-card__nameinline";
+      name.textContent = row.first_name + " " + row.last_name;
+      row1.appendChild(name);
+      row1.appendChild(dotSpan());
+      var pill = document.createElement("span");
+      pill.className = "pill-datetime pill-datetime--compact";
+      pill.textContent = row.preferred_date + " \u00b7 " + row.preferred_time;
+      row1.appendChild(pill);
+      article.appendChild(row1);
+
+      var row2 = document.createElement("div");
+      row2.className = "admin-card__row2";
+      var addr = document.createElement("span");
+      addr.className = "admin-card__addr";
+      addr.textContent =
+        row.street + ", " + row.plz + " " + row.city;
+      row2.appendChild(addr);
+      row2.appendChild(dotSpan());
+      var tel = document.createElement("a");
+      tel.className = "admin-card__tel";
+      tel.href = telHref(row.phone);
+      tel.textContent = row.phone;
+      row2.appendChild(tel);
+      article.appendChild(row2);
+
+      var row3 = document.createElement("div");
+      row3.className = "admin-card__row3";
+      var wrap = document.createElement("div");
+      wrap.className = "admin-card__status-wrap";
+      var lbl = document.createElement("label");
+      lbl.className = "sr-only";
+      lbl.setAttribute("for", "status-m-" + row.id);
+      lbl.textContent = t.table_status;
+      var sel = document.createElement("select");
+      sel.className =
+        "field__input admin-card__select admin-card__select--compact js-admin-status-select";
+      sel.id = "status-m-" + row.id;
+      sel.name = "status";
+      sel.setAttribute("data-appt-id", String(row.id));
+      sel.setAttribute("data-committed-status", row.status);
+      ["new", "confirmed", "completed"].forEach(function (val) {
+        var opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = st[val][lang];
+        if (val === row.status) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      wrap.appendChild(lbl);
+      wrap.appendChild(sel);
+      row3.appendChild(wrap);
+
+      var dform = document.createElement("form");
+      dform.className = "admin-card__delete-form js-admin-delete-form";
+      dform.method = "post";
+      dform.action = "/admin/delete/" + row.id;
+      dform.setAttribute("data-appt-id", String(row.id));
+      var dbtn = document.createElement("button");
+      dbtn.type = "submit";
+      dbtn.className = "btn btn--delete-card btn--delete-compact";
+      dbtn.setAttribute("data-i18n", "delete");
+      dbtn.textContent = t.delete;
+      dform.appendChild(dbtn);
+      row3.appendChild(dform);
+      article.appendChild(row3);
+
+      return article;
+    }
+
+    function buildTableRow(row) {
+      var lang = currentAdminLang();
+      var t = DATA.ui[lang];
+      var st = DATA.status;
+      var tr = document.createElement("tr");
+      tr.setAttribute("data-appt-id", String(row.id));
+
+      var td1 = document.createElement("td");
+      td1.textContent = row.first_name + " " + row.last_name;
+      tr.appendChild(td1);
+
+      var td2 = document.createElement("td");
+      td2.textContent = row.street + ", " + row.plz + " " + row.city;
+      tr.appendChild(td2);
+
+      var td3 = document.createElement("td");
+      var a = document.createElement("a");
+      a.href = telHref(row.phone);
+      a.textContent = row.phone;
+      td3.appendChild(a);
+      tr.appendChild(td3);
+
+      var td4 = document.createElement("td");
+      td4.className = "cell-datetime";
+      var span = document.createElement("span");
+      span.className = "pill-datetime";
+      span.textContent = row.preferred_date + " \u00b7 " + row.preferred_time;
+      td4.appendChild(span);
+      tr.appendChild(td4);
+
+      var td5 = document.createElement("td");
+      td5.className = "muted small";
+      td5.textContent = row.created_at;
+      tr.appendChild(td5);
+
+      var td6 = document.createElement("td");
+      var wrap = document.createElement("div");
+      wrap.className = "inline-form inline-form--pseudo";
+      var lbl = document.createElement("label");
+      lbl.className = "sr-only";
+      lbl.setAttribute("for", "status-d-" + row.id);
+      lbl.textContent = t.table_status;
+      var sel = document.createElement("select");
+      sel.className = "field__input field__input--sm js-admin-status-select";
+      sel.id = "status-d-" + row.id;
+      sel.name = "status";
+      sel.setAttribute("data-appt-id", String(row.id));
+      sel.setAttribute("data-committed-status", row.status);
+      ["new", "confirmed", "completed"].forEach(function (val) {
+        var opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = st[val][lang];
+        if (val === row.status) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      wrap.appendChild(lbl);
+      wrap.appendChild(sel);
+      td6.appendChild(wrap);
+      tr.appendChild(td6);
+
+      var td7 = document.createElement("td");
+      var form = document.createElement("form");
+      form.className = "inline-form js-admin-delete-form";
+      form.method = "post";
+      form.action = "/admin/delete/" + row.id;
+      form.setAttribute("data-appt-id", String(row.id));
+      var btn = document.createElement("button");
+      btn.type = "submit";
+      btn.className = "btn btn--danger btn--sm";
+      btn.setAttribute("data-i18n", "delete");
+      btn.textContent = t.delete;
+      form.appendChild(btn);
+      td7.appendChild(form);
+      tr.appendChild(td7);
+
+      return tr;
+    }
+
+    function mergeNewAppointments(rowsFromServer) {
+      if (!Array.isArray(rowsFromServer)) return;
+      var cardsEl = document.getElementById("admin-cards-list");
+      var tbody = document.getElementById("admin-table-body");
+      if (!cardsEl || !tbody) return;
+
+      var existing = new Set();
+      cardsEl.querySelectorAll("article[data-appt-id]").forEach(function (el) {
+        existing.add(el.getAttribute("data-appt-id"));
+      });
+
+      var missing = rowsFromServer.filter(function (r) {
+        return !existing.has(String(r.id));
+      });
+
+      for (var i = missing.length - 1; i >= 0; i--) {
+        var r = missing[i];
+        cardsEl.insertBefore(buildAppointmentCard(r), cardsEl.firstChild);
+        tbody.insertBefore(buildTableRow(r), tbody.firstChild);
+      }
+
+      if (missing.length) updateAdminEmptyState();
+    }
 
     function applyAdminLang(lang) {
       var t = DATA.ui[lang];
@@ -195,45 +408,94 @@
       });
     }
 
-    function bindStatusSelects() {
-      document.querySelectorAll("select.js-admin-status-select").forEach(function (sel) {
-        sel.addEventListener("change", function () {
-          var id = sel.getAttribute("data-appt-id");
-          var committed = sel.getAttribute("data-committed-status");
-          var next = sel.value;
-          var card = sel.closest(".admin-card--compact");
-          fetch("/admin/status/" + id, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Accept: "application/json",
-            },
-            body: new URLSearchParams({ status: next }),
-            credentials: "same-origin",
-          })
+    document.addEventListener("change", function (e) {
+      var t = e.target;
+      if (!t.matches || !t.matches("select.js-admin-status-select")) return;
+      var id = t.getAttribute("data-appt-id");
+      var committed = t.getAttribute("data-committed-status");
+      var next = t.value;
+      var card = t.closest(".admin-card--compact");
+      fetch("/admin/status/" + id, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({ status: next }),
+        credentials: "same-origin",
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("status");
+          return r.json();
+        })
+        .then(function (data) {
+          document
+            .querySelectorAll(
+              'select.js-admin-status-select[data-appt-id="' + id + '"]'
+            )
+            .forEach(function (s) {
+              s.value = data.status;
+              s.setAttribute("data-committed-status", data.status);
+            });
+          if (card) {
+            card.classList.remove(
+              "admin-card--status-new",
+              "admin-card--status-confirmed",
+              "admin-card--status-completed"
+            );
+            card.classList.add("admin-card--status-" + data.status);
+          }
+        })
+        .catch(function () {
+          t.value = committed;
+        });
+    });
+
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (!form.matches || !form.matches("form.js-admin-delete-form")) return;
+      e.preventDefault();
+      if (!confirm("OK?")) return;
+      var id = form.getAttribute("data-appt-id");
+      fetch("/admin/delete/" + id, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("del");
+          return r.json();
+        })
+        .then(function () {
+          var card = document.querySelector(
+            '#admin-cards-list article[data-appt-id="' + id + '"]'
+          );
+          if (card) card.remove();
+          var tr = document.querySelector(
+            '#admin-table-body tr[data-appt-id="' + id + '"]'
+          );
+          if (tr) tr.remove();
+          updateAdminEmptyState();
+        })
+        .catch(function () {});
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      var rb = document.getElementById("admin-refresh-btn");
+      if (rb) {
+        rb.addEventListener("click", function () {
+          fetch("/admin/api/appointments", { credentials: "same-origin" })
             .then(function (r) {
-              if (!r.ok) throw new Error("status");
+              if (!r.ok) throw new Error("fetch");
               return r.json();
             })
             .then(function (data) {
-              sel.setAttribute("data-committed-status", data.status);
-              if (card) {
-                card.classList.remove(
-                  "admin-card--status-new",
-                  "admin-card--status-confirmed",
-                  "admin-card--status-completed"
-                );
-                card.classList.add("admin-card--status-" + data.status);
-              }
+              mergeNewAppointments(data.appointments || []);
             })
-            .catch(function () {
-              sel.value = committed;
-            });
+            .catch(function () {});
         });
-      });
-    }
+      }
 
-    document.addEventListener("DOMContentLoaded", function () {
       var serverLang = document.body.getAttribute("data-admin-lang") || "de";
       var sel = document.getElementById("admin-lang");
       if (sel) sel.dataset.prevLangSelect = serverLang;
@@ -247,14 +509,8 @@
           localStorage.setItem("admin_lang", serverLang);
         } catch (e) {}
       } else if (stored !== serverLang) {
-        setAdminLang(stored)
-          .catch(function () {})
-          .finally(function () {
-            bindStatusSelects();
-          });
-        return;
+        setAdminLang(stored).catch(function () {});
       }
-      bindStatusSelects();
     });
   })();
   </script>
