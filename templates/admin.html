@@ -25,6 +25,7 @@
               <option value="en" {% if admin_lang == 'en' %}selected{% endif %}>EN</option>
             </select>
           </form>
+          <button type="button" class="admin-refresh-btn" onclick="location.reload()" aria-label="{{ at.refresh }}" title="{{ at.refresh }}">↻</button>
           <a class="btn btn--ghost btn--sm" href="/admin/logout">{{ at.logout }}</a>
         </div>
         {% else %}
