@@ -1220,3 +1220,12 @@ a.header-contact:hover {
 .reschedule-modal .slot-booking {
   margin: 0;
 }
+
+.reschedule-modal-time-field {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.reschedule-modal-time-field .field__input {
+  max-width: 12rem;
+}

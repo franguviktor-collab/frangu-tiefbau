@@ -156,9 +156,10 @@
       <div class="slot-booking" id="modal-slot-booking-root">
         <p class="field__label slot-booking__heading" data-i18n="pick_date">{{ at.pick_date }}</p>
         <div class="slot-days" id="modal-slot-days" role="group"></div>
-        <p class="field__label slot-booking__heading" style="margin-top:0.75rem" data-i18n="pick_time">{{ at.pick_time }}</p>
-        <div class="slot-times" id="modal-slot-times" role="group"></div>
-        <p class="muted small slot-times-hint" id="modal-slot-loading" hidden data-i18n="slot_loading">{{ at.slot_loading }}</p>
+        <label class="field reschedule-modal-time-field">
+          <span class="field__label slot-booking__heading" data-i18n="pick_time">{{ at.pick_time }}</span>
+          <input type="time" class="field__input" id="modal-reschedule-time" name="modal-reschedule-time" step="60" required autocomplete="off">
+        </label>
       </div>
       <div class="reschedule-modal__actions">
         <button type="button" class="btn btn--ghost" id="reschedule-cancel" data-i18n="reschedule_cancel">{{ at.reschedule_cancel }}</button>
@@ -189,7 +190,7 @@
       if (!Array.isArray(BOOKABLE)) BOOKABLE = [];
     }
 
-    var rescheduleState = { apptId: null, dateIso: null, time: null };
+    var rescheduleState = { apptId: null, dateIso: null };
 
     function showModalErr(msg) {
       var el = document.getElementById("reschedule-modal-err");
@@ -218,61 +219,30 @@
       });
     }
 
-    function renderModalSlots(slots, selectedTime) {
-      var wrap = document.getElementById("modal-slot-times");
-      var sav = document.getElementById("reschedule-save");
-      if (!wrap) return;
-      wrap.innerHTML = "";
-      slots.forEach(function (s) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "slot-time-btn";
-        btn.textContent = s.time;
-        btn.setAttribute("data-time", s.time);
-        if (s.status === "taken") {
-          btn.classList.add("slot-time-btn--taken");
-          btn.disabled = true;
-        } else {
-          btn.classList.add("slot-time-btn--free");
-          if (selectedTime && selectedTime === s.time) {
-            btn.classList.add("slot-time-btn--active");
-          }
-        }
-        wrap.appendChild(btn);
-      });
-      rescheduleState.time = selectedTime || null;
-      if (sav)
-        sav.disabled =
-          !(rescheduleState.time && rescheduleState.dateIso && rescheduleState.apptId);
+    function timeForModalInput(raw) {
+      var s = String(raw || "").trim().split(".")[0];
+      if (!s) return "";
+      var p = s.split(":");
+      if (p.length < 2) return "";
+      var h = parseInt(p[0], 10);
+      var m = parseInt(p[1], 10);
+      if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+        return "";
+      }
+      return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
     }
 
-    function loadModalSlots(iso, apptExcludeId, preselectTime) {
-      var loadEl = document.getElementById("modal-slot-loading");
-      if (loadEl) loadEl.hidden = false;
-      var url =
-        "/api/slots?date=" +
-        encodeURIComponent(iso) +
-        "&exclude_appt_id=" +
-        encodeURIComponent(String(apptExcludeId));
-      fetch(url)
-        .then(function (r) {
-          if (!r.ok) throw new Error("slots");
-          return r.json();
-        })
-        .then(function (data) {
-          if (loadEl) loadEl.hidden = true;
-          var slots = data.slots || [];
-          var sel = preselectTime;
-          var stillFree =
-            sel &&
-            slots.some(function (x) {
-              return x.time === sel && x.status === "free";
-            });
-          renderModalSlots(slots, stillFree ? sel : null);
-        })
-        .catch(function () {
-          if (loadEl) loadEl.hidden = true;
-        });
+    function updateModalSaveEnabled() {
+      var sav = document.getElementById("reschedule-save");
+      var ti = document.getElementById("modal-reschedule-time");
+      if (!sav) return;
+      var ok =
+        rescheduleState.apptId &&
+        rescheduleState.dateIso &&
+        ti &&
+        ti.value &&
+        ti.value.length >= 4;
+      sav.disabled = !ok;
     }
 
     function openRescheduleModal(apptId, curDateIso, curTime) {
@@ -286,7 +256,11 @@
         ? curDateIso
         : BOOKABLE[0].iso;
       renderModalDays(def);
-      loadModalSlots(def, apptId, curTime || null);
+      var ti = document.getElementById("modal-reschedule-time");
+      if (ti) {
+        ti.value = timeForModalInput(curTime);
+      }
+      updateModalSaveEnabled();
       modal.hidden = false;
       document.documentElement.style.overflow = "hidden";
     }
@@ -297,7 +271,8 @@
       document.documentElement.style.overflow = "";
       rescheduleState.apptId = null;
       rescheduleState.dateIso = null;
-      rescheduleState.time = null;
+      var ti = document.getElementById("modal-reschedule-time");
+      if (ti) ti.value = "";
       showModalErr("");
     }
 
@@ -725,28 +700,7 @@
       ) {
         var iso = tgt.getAttribute("data-date");
         renderModalDays(iso);
-        loadModalSlots(iso, rescheduleState.apptId, null);
-        return;
-      }
-
-      if (
-        tgt.matches &&
-        tgt.matches(".slot-time-btn.slot-time-btn--free") &&
-        tgt.closest &&
-        tgt.closest("#modal-slot-times")
-      ) {
-        var tm = tgt.getAttribute("data-time");
-        rescheduleState.time = tm;
-        document
-          .querySelectorAll("#modal-slot-times .slot-time-btn--free")
-          .forEach(function (b) {
-            b.classList.toggle(
-              "slot-time-btn--active",
-              b.getAttribute("data-time") === tm
-            );
-          });
-        var sav = document.getElementById("reschedule-save");
-        if (sav) sav.disabled = false;
+        updateModalSaveEnabled();
         return;
       }
 
@@ -789,12 +743,19 @@
       var cancelBt = document.getElementById("reschedule-cancel");
       if (cancelBt) cancelBt.addEventListener("click", closeRescheduleModal);
 
+      var modalTi = document.getElementById("modal-reschedule-time");
+      if (modalTi) {
+        modalTi.addEventListener("input", updateModalSaveEnabled);
+        modalTi.addEventListener("change", updateModalSaveEnabled);
+      }
+
       var saveBt = document.getElementById("reschedule-save");
       if (saveBt) {
         saveBt.addEventListener("click", function () {
           var id = rescheduleState.apptId;
           var dIso = rescheduleState.dateIso;
-          var tmStr = rescheduleState.time;
+          var ti = document.getElementById("modal-reschedule-time");
+          var tmStr = ti && ti.value ? ti.value : "";
           if (!id || !dIso || !tmStr) return;
           showModalErr("");
           fetch("/admin/reschedule/" + id, {
@@ -810,16 +771,25 @@
             }),
           })
             .then(function (res) {
-              if (res.status === 409) {
-                var lg = currentAdminLang();
-                var msg =
-                  (DATA.ui[lg] && DATA.ui[lg].slot_conflict_admin) ||
-                  "";
-                showModalErr(msg);
-                return Promise.resolve(null);
-              }
-              if (!res.ok) throw new Error("rs");
-              return res.json();
+              return res
+                .json()
+                .catch(function () {
+                  return {};
+                })
+                .then(function (body) {
+                  if (!res.ok) {
+                    var detail = body && body.detail;
+                    var msg =
+                      typeof detail === "string"
+                        ? detail
+                        : detail
+                        ? JSON.stringify(detail)
+                        : "Request failed";
+                    showModalErr(msg);
+                    return null;
+                  }
+                  return body;
+                });
             })
             .then(function (body) {
               if (!body) return;

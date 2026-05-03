@@ -11,7 +11,7 @@ from psycopg2.extras import RealDictCursor
 
 dotenv.load_dotenv()
 
-SLOT_TIMES = ("08:00", "10:00", "12:00", "14:00", "16:00", "18:00")
+SLOT_TIMES = ("09:00", "10:45", "12:30", "14:15", "16:00")
 BOOKABLE_DAY_COUNT = 14
 
 
@@ -195,6 +195,25 @@ def normalize_slot_time(raw: str) -> str | None:
     if raw not in SLOT_TIMES:
         return None
     return raw
+
+
+def normalize_reschedule_time(raw: str) -> str | None:
+    """Any clock time for admin reschedule (<input type=time>: HH:MM)."""
+    s = (raw or "").strip().split(".", 1)[0].strip()
+    if not s:
+        return None
+    parts = s.split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        h = int(parts[0], 10)
+        m = int(parts[1], 10)
+        sec = int(parts[2], 10) if len(parts) > 2 else 0
+    except ValueError:
+        return None
+    if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= sec <= 59):
+        return None
+    return f"{h:02d}:{m:02d}"
 
 
 def taken_times_for_date(

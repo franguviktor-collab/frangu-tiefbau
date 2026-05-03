@@ -665,13 +665,11 @@ async def admin_reschedule(
         raise HTTPException(status_code=404, detail="not found")
 
     nd = new_date.strip()
-    nt = db.normalize_slot_time(new_time)
+    nt = db.normalize_reschedule_time(new_time)
     if not nt:
         raise HTTPException(status_code=400, detail="invalid time")
     if not db.is_bookable_now(nd):
         raise HTTPException(status_code=400, detail="invalid date")
-    if db.is_slot_blocked(nd, nt, exclude_appt_id=appt_id):
-        raise HTTPException(status_code=409, detail="slot taken")
 
     try:
         db.reschedule_appointment(appt_id, nd, nt)
