@@ -1,4 +1,4 @@
-"""Frangu Tiefbau — Glasfaser Termine (FastAPI)."""
+"""German Fiber Solution GmbH & Co. KG — Glasfaser Termine (FastAPI)."""
 
 from __future__ import annotations
 
@@ -23,7 +23,11 @@ dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-RESEND_SCHEDULE_FROM = "Frangu Tiefbau <onboarding@resend.dev>"
+RESEND_SCHEDULE_FROM = (
+    "German Fiber Solution GmbH & Co. KG <onboarding@resend.dev>"
+)
+
+COMPANY_LEGAL_NAME = "German Fiber Solution GmbH & Co. KG"
 
 
 def _configure_stderr_logging() -> None:
@@ -37,17 +41,21 @@ def _configure_stderr_logging() -> None:
 
 
 _configure_stderr_logging()
-CONTACT_PHONE = os.getenv("CONTACT_PHONE", "+49 174 211 3689")
+PUBLIC_CONTACT_PHONE = os.getenv("PUBLIC_CONTACT_PHONE", "+49 174 211 3689")
+OFFICE_CONTACT_PHONE = os.getenv("OFFICE_CONTACT_PHONE", "+49 2857 486 0174")
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "frangu.tiefbau@gmail.com")
 FOOTER_ADDRESS = os.getenv(
     "FOOTER_ADDRESS",
-    "Krümpelstraße 11 · 49504 Lotte · Deutschland",
+    "Lindenallee 9 · 21376 Salzhausen · Deutschland",
 )
 
 
-def _public_ctx() -> dict:
+def _public_ctx(*, for_admin: bool = False) -> dict:
+    header_phone = OFFICE_CONTACT_PHONE if for_admin else PUBLIC_CONTACT_PHONE
     return {
-        "contact_phone": CONTACT_PHONE,
+        "company_name": COMPANY_LEGAL_NAME,
+        "contact_phone": header_phone,
+        "footer_phone": OFFICE_CONTACT_PHONE,
         "contact_email": CONTACT_EMAIL,
         "contact_address": FOOTER_ADDRESS,
     }
@@ -111,10 +119,10 @@ def _send_reschedule_email_de(
         "Wir bitten Sie, uns zu diesem neuen Zeitpunkt zu Hause zu empfangen. Sollten Sie Fragen "
         "haben oder der Termin nicht passen, kontaktieren Sie uns bitte.\n\n"
         "Bei Rückfragen erreichen Sie uns unter:\n"
-        "Telefon: +49 174 211 3689\n"
-        "E-Mail: frangu.tiefbau@gmail.com\n\n"
+        f"Telefon: {OFFICE_CONTACT_PHONE}\n"
+        f"E-Mail: {CONTACT_EMAIL}\n\n"
         "Mit freundlichen Grüßen\n"
-        "Frangu Tiefbau\n"
+        f"{COMPANY_LEGAL_NAME}\n"
     )
 
     resend.api_key = api_key
@@ -124,7 +132,7 @@ def _send_reschedule_email_de(
         "to": [recipient],
         "subject": "Ihr Glasfaser-Termin wurde verschoben",
         "text": body,
-        "reply_to": "frangu.tiefbau@gmail.com",
+        "reply_to": CONTACT_EMAIL,
     }
 
     logger.info(
@@ -153,7 +161,7 @@ Lang = Literal["de", "ru", "en"]
 I18N: dict[Lang, dict[str, str]] = {
     "de": {
         "title": "Glasfaser — Termin",
-        "brand": "Frangu Tiefbau",
+        "brand": "German Fiber Solution GmbH & Co. KG",
         "subtitle": "Glasfaser Termine · Anmeldung",
         "first_name": "Vorname",
         "last_name": "Nachname",
@@ -178,7 +186,7 @@ I18N: dict[Lang, dict[str, str]] = {
     },
     "ru": {
         "title": "Glasfaser — запись",
-        "brand": "Frangu Tiefbau",
+        "brand": "German Fiber Solution GmbH & Co. KG",
         "subtitle": "Glasfaser Termine · запись на визит",
         "first_name": "Имя",
         "last_name": "Фамилия",
@@ -203,7 +211,7 @@ I18N: dict[Lang, dict[str, str]] = {
     },
     "en": {
         "title": "Glasfaser — appointment",
-        "brand": "Frangu Tiefbau",
+        "brand": "German Fiber Solution GmbH & Co. KG",
         "subtitle": "Glasfaser Termine · book a slot",
         "first_name": "First name",
         "last_name": "Last name",
@@ -332,7 +340,9 @@ env_j = Environment(
     autoescape=select_autoescape(["html", "xml"]),
 )
 
-app = FastAPI(title="Frangu Tiefbau — Glasfaser Termine")
+app = FastAPI(
+    title="German Fiber Solution GmbH & Co. KG — Glasfaser Termine"
+)
 
 session_secret = os.getenv("SESSION_SECRET", "dev-secret-change-in-production")
 app.add_middleware(
@@ -533,7 +543,7 @@ async def admin_login_post(
             status_labels=ADMIN_STATUS_LABELS,
             admin_i18n_json="",
             bookable_slot_calendar_json="[]",
-            **_public_ctx(),
+            **_public_ctx(for_admin=True),
         )
         resp = HTMLResponse(content=html, status_code=status.HTTP_401_UNAUTHORIZED)
         resp.set_cookie("admin_lang", al, **COOKIE_ADMIN_LANG)
@@ -568,7 +578,7 @@ async def admin_page(request: Request, lang: str | None = None):
             status_labels=ADMIN_STATUS_LABELS,
             admin_i18n_json="",
             bookable_slot_calendar_json="[]",
-            **_public_ctx(),
+            **_public_ctx(for_admin=True),
         )
         resp = HTMLResponse(content=html)
         if lang in ("de", "ru", "en"):
@@ -596,7 +606,7 @@ async def admin_page(request: Request, lang: str | None = None):
             status_labels=ADMIN_STATUS_LABELS,
             admin_i18n_json=_admin_i18n_json(),
             bookable_slot_calendar_json=bookable_slot_calendar,
-            **_public_ctx(),
+            **_public_ctx(for_admin=True),
         )
     )
     resp.set_cookie("admin_lang", al, **COOKIE_ADMIN_LANG)

@@ -1,7 +1,7 @@
 {
-  "name": "FT Admin",
-  "short_name": "FT Admin",
-  "description": "Frangu Tiefbau Admin",
+  "name": "German Fiber Solution — Admin",
+  "short_name": "GFS Admin",
+  "description": "German Fiber Solution GmbH & Co. KG — Termine Admin",
   "start_url": "/admin",
   "display": "standalone",
   "background_color": "#1a0a0a",
