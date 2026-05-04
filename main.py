@@ -119,7 +119,7 @@ def _send_reschedule_email_de(
         "Wir bitten Sie, uns zu diesem neuen Zeitpunkt zu Hause zu empfangen. Sollten Sie Fragen "
         "haben oder der Termin nicht passen, kontaktieren Sie uns bitte.\n\n"
         "Bei Rückfragen erreichen Sie uns unter:\n"
-        f"Telefon: {OFFICE_CONTACT_PHONE}\n"
+        f"Telefon: {PUBLIC_CONTACT_PHONE}\n"
         f"E-Mail: {CONTACT_EMAIL}\n\n"
         "Mit freundlichen Grüßen\n"
         f"{COMPANY_LEGAL_NAME}\n"
